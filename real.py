@@ -7,7 +7,7 @@ import smtplib
 from email.message import EmailMessage
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="FuturePath", page_icon="🌈", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="FuturePath", page_icon="favicon.png", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
