@@ -7,6 +7,9 @@ import smtplib
 from email.message import EmailMessage
 from datetime import datetime, timedelta
 
+st.markdown(
+    '<meta name="google-site-verification" content="t1jXdzX4yfv99R-5m2LwyHfRTrUBm5UCTmMi6HGEpqU" />',
+    unsafe_allow_html=True)
 st.set_page_config(page_title="FuturePath", page_icon="favicon.png", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
