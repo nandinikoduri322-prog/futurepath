@@ -37,7 +37,7 @@ button[kind="secondary"]{border-radius:12px!important}
 .back-wrap .stButton>button{background:linear-gradient(135deg,#102a56,#4f46e5)!important;color:#fff!important;border:0!important;border-radius:12px!important;min-height:46px!important;padding:0 20px!important;font-weight:800!important;box-shadow:0 7px 18px rgba(79,70,229,.24)!important}
 .back-wrap .stButton>button:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(79,70,229,.30)!important}
 .hero-shell{position:relative;width:100%;overflow:hidden;border-radius:22px;box-shadow:0 10px 28px rgba(16,42,86,.12);background:white;line-height:0}
-.hero-shell img{display:block;width:100%;height:auto!important;max-height:none!important;object-fit:contain!important}
+.hero-shell img{display:block;width:100%;height:auto}
 .hero-hotspot{position:absolute;left:38.2%;top:43.7%;width:22.5%;height:8.2%;display:block;border-radius:999px;z-index:5;cursor:pointer;background:transparent;-webkit-tap-highlight-color:transparent}
 
 /* FuturePath custom sidebar */
@@ -99,31 +99,23 @@ section[data-testid="stSidebar"] header{background:transparent!important}
 }
 
 @media(max-width:700px){
-  /* MOBILE: fill the entire phone viewport with the COMPLETE source artwork.
-     object-fit:fill intentionally prevents both cropping and the "tiny image" effect.
-     Because a landscape source must fill a portrait viewport, the browser scales both
-     dimensions independently; every pixel of the original artwork remains visible. */
-  html,body,#root{
-    width:100%!important;
-    min-width:100%!important;
-    margin:0!important;
-    padding:0!important;
-    overflow-x:hidden!important;
-  }
+  /* MOBILE: make the cinematic homepage a full-screen hero.
+     Do NOT reset the image height back to auto here. */
   .block-container{
-    width:100vw!important;
+    width:100%!important;
     max-width:none!important;
-    padding:0!important;
+    padding:.15rem 0 0!important;
     margin:0!important;
   }
   .hero-shell{
     position:relative!important;
     width:100vw!important;
     max-width:100vw!important;
-    height:100svh!important;
-    min-height:100svh!important;
-    max-height:100svh!important;
-    margin:0!important;
+    height:calc(100svh - 8px)!important;
+    min-height:540px!important;
+    max-height:none!important;
+    margin-left:calc(50% - 50vw)!important;
+    margin-right:calc(50% - 50vw)!important;
     border-radius:0!important;
     overflow:hidden!important;
     box-shadow:none!important;
@@ -135,16 +127,15 @@ section[data-testid="stSidebar"] header{background:transparent!important}
     height:100%!important;
     max-width:none!important;
     max-height:none!important;
-    object-fit:fill!important;
-    object-position:center center!important;
+    object-fit:cover!important;
+    object-position:center 47%!important;
   }
-  /* Large touch area around the Start Your Journey button in the artwork.
-     Percentages are preserved because the entire image is mapped to the viewport. */
+  /* Large touch area around the Start Your Journey button in the artwork. */
   .hero-hotspot{
-    left:30%!important;
-    top:42%!important;
-    width:40%!important;
-    height:11%!important;
+    left:16%!important;
+    top:47%!important;
+    width:68%!important;
+    height:18%!important;
     display:block!important;
     z-index:20!important;
     cursor:pointer!important;
@@ -180,25 +171,20 @@ section[data-testid="stSidebar"] header{background:transparent!important}
 /* Some mobile browsers report a wider CSS viewport; touch devices still get the
    same large hero treatment. */
 @media(max-width:900px) and (pointer:coarse){
-  /* Touch devices use the same true full-screen, no-crop treatment. */
   .hero-shell{
     width:100vw!important;
     max-width:100vw!important;
-    height:100svh!important;
-    min-height:100svh!important;
-    max-height:100svh!important;
-    margin:0!important;
-    overflow:hidden!important;
+    margin-left:calc(50% - 50vw)!important;
+    margin-right:calc(50% - 50vw)!important;
   }
   .hero-shell img{
     width:100%!important;
     height:100%!important;
-    max-height:none!important;
-    object-fit:fill!important;
-    object-position:center center!important;
+    object-fit:cover!important;
+    object-position:center 47%!important;
   }
   .hero-hotspot{
-    left:30%!important;top:42%!important;width:40%!important;height:11%!important;
+    left:16%!important;top:47%!important;width:68%!important;height:18%!important;
   }
 }
 
