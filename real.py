@@ -99,47 +99,62 @@ section[data-testid="stSidebar"] header{background:transparent!important}
 }
 
 @media(max-width:700px){
-  /* Mobile homepage: make the cinematic hero fill the screen instead of shrinking to a tiny banner. */
-  .block-container{padding:.25rem .15rem 1.25rem!important}
-  .hero-shell{
+  /* MOBILE: make the cinematic homepage a full-screen hero.
+     Do NOT reset the image height back to auto here. */
+  .block-container{
     width:100%!important;
-    height:calc(100svh - 20px)!important;
-    min-height:520px!important;
-    max-height:900px!important;
-    overflow:hidden!important;
+    max-width:none!important;
+    padding:.15rem 0 0!important;
+    margin:0!important;
+  }
+  .hero-shell{
+    position:relative!important;
+    width:100vw!important;
+    max-width:100vw!important;
+    height:calc(100svh - 8px)!important;
+    min-height:540px!important;
+    max-height:none!important;
+    margin-left:calc(50% - 50vw)!important;
+    margin-right:calc(50% - 50vw)!important;
     border-radius:0!important;
+    overflow:hidden!important;
+    box-shadow:none!important;
+    background:#07142d!important;
   }
   .hero-shell img{
+    display:block!important;
     width:100%!important;
     height:100%!important;
     max-width:none!important;
+    max-height:none!important;
     object-fit:cover!important;
-    object-position:center center!important;
-    display:block!important;
+    object-position:center 47%!important;
   }
-  /* Larger touch target for the Start Your Journey hotspot on phones. */
+  /* Large touch area around the Start Your Journey button in the artwork. */
   .hero-hotspot{
-    left:27%!important;
-    top:43%!important;
-    width:46%!important;
-    height:12%!important;
+    left:16%!important;
+    top:47%!important;
+    width:68%!important;
+    height:18%!important;
+    display:block!important;
+    z-index:20!important;
+    cursor:pointer!important;
+    touch-action:manipulation!important;
+    -webkit-tap-highlight-color:transparent!important;
   }
-  .fp-title{font-size:1.55rem!important;line-height:1.18!important}
+  .fp-title{font-size:1.5rem!important;line-height:1.18!important}
   .fp-sub{font-size:.94rem!important;line-height:1.45!important}
-  .fp-section{font-size:1.25rem!important;margin:17px 0 7px!important}
-  .fp-card{padding:14px!important;border-radius:16px!important;box-shadow:0 5px 16px rgba(30,41,59,.07)!important}
+  .fp-section{font-size:1.22rem!important;margin:17px 0 7px!important}
+  .fp-card{padding:14px!important;border-radius:16px!important}
   .fp-chip{font-size:.76rem!important;padding:5px 8px!important}
   .fp-tree{padding:13px 14px!important;border-radius:16px!important}
   .fp-tree-line{font-size:.92rem!important;padding:7px 0!important}
-  .hero-shell{border-radius:13px!important;box-shadow:0 7px 18px rgba(16,42,86,.10)!important}
-  .hero-shell img{width:100%!important;height:auto!important;display:block!important}
   .small-muted{font-size:.78rem!important}
   .fp-side-brand{padding:7px 8px 14px!important}
   .fp-side-brand .logo{font-size:1.35rem!important}
   .fp-side-spacer{height:95px!important}
   .fp-side-footer{font-size:.85rem!important}
 
-  /* Streamlit columns become single-column cards on phones. */
   [data-testid="stHorizontalBlock"]{flex-wrap:wrap!important;gap:.65rem!important}
   [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{
       flex:1 1 100%!important;
@@ -148,11 +163,29 @@ section[data-testid="stSidebar"] header{background:transparent!important}
       max-width:100%!important;
   }
   [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]:empty{display:none!important}
-
-  /* Sidebar opens as a mobile drawer when Streamlit collapses it. */
   section[data-testid="stSidebar"]{width:86vw!important;min-width:86vw!important;max-width:86vw!important}
   section[data-testid="stSidebar"] > div:first-child{padding:.6rem .5rem .8rem!important}
   section[data-testid="stSidebar"] button[kind="secondary"]{min-height:46px!important;font-size:.96rem!important}
+}
+
+/* Some mobile browsers report a wider CSS viewport; touch devices still get the
+   same large hero treatment. */
+@media(max-width:900px) and (pointer:coarse){
+  .hero-shell{
+    width:100vw!important;
+    max-width:100vw!important;
+    margin-left:calc(50% - 50vw)!important;
+    margin-right:calc(50% - 50vw)!important;
+  }
+  .hero-shell img{
+    width:100%!important;
+    height:100%!important;
+    object-fit:cover!important;
+    object-position:center 47%!important;
+  }
+  .hero-hotspot{
+    left:16%!important;top:47%!important;width:68%!important;height:18%!important;
+  }
 }
 
 @media(min-width:701px) and (max-width:1200px){
