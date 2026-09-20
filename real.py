@@ -99,42 +99,52 @@ section[data-testid="stSidebar"] header{background:transparent!important}
 }
 
 @media(max-width:700px){
-  /* MOBILE: show the complete homepage image without cropping. */
-  .block-container{
+  /* MOBILE: fill the entire phone viewport with the COMPLETE source artwork.
+     object-fit:fill intentionally prevents both cropping and the "tiny image" effect.
+     Because a landscape source must fill a portrait viewport, the browser scales both
+     dimensions independently; every pixel of the original artwork remains visible. */
+  html,body,#root{
     width:100%!important;
+    min-width:100%!important;
+    margin:0!important;
+    padding:0!important;
+    overflow-x:hidden!important;
+  }
+  .block-container{
+    width:100vw!important;
     max-width:none!important;
-    padding:.15rem 0 0!important;
+    padding:0!important;
     margin:0!important;
   }
   .hero-shell{
     position:relative!important;
     width:100vw!important;
     max-width:100vw!important;
-    height:auto!important;
-    min-height:0!important;
-    max-height:none!important;
-    margin-left:calc(50% - 50vw)!important;
-    margin-right:calc(50% - 50vw)!important;
+    height:100svh!important;
+    min-height:100svh!important;
+    max-height:100svh!important;
+    margin:0!important;
     border-radius:0!important;
-    overflow:visible!important;
+    overflow:hidden!important;
     box-shadow:none!important;
     background:#07142d!important;
   }
   .hero-shell img{
     display:block!important;
     width:100%!important;
-    height:auto!important;
+    height:100%!important;
     max-width:none!important;
     max-height:none!important;
-    object-fit:contain!important;
+    object-fit:fill!important;
     object-position:center center!important;
   }
-  /* Large touch area around the Start Your Journey button in the artwork. */
+  /* Large touch area around the Start Your Journey button in the artwork.
+     Percentages are preserved because the entire image is mapped to the viewport. */
   .hero-hotspot{
-    left:16%!important;
-    top:47%!important;
-    width:68%!important;
-    height:18%!important;
+    left:30%!important;
+    top:42%!important;
+    width:40%!important;
+    height:11%!important;
     display:block!important;
     z-index:20!important;
     cursor:pointer!important;
@@ -170,21 +180,25 @@ section[data-testid="stSidebar"] header{background:transparent!important}
 /* Some mobile browsers report a wider CSS viewport; touch devices still get the
    same large hero treatment. */
 @media(max-width:900px) and (pointer:coarse){
+  /* Touch devices use the same true full-screen, no-crop treatment. */
   .hero-shell{
     width:100vw!important;
     max-width:100vw!important;
-    margin-left:calc(50% - 50vw)!important;
-    margin-right:calc(50% - 50vw)!important;
+    height:100svh!important;
+    min-height:100svh!important;
+    max-height:100svh!important;
+    margin:0!important;
+    overflow:hidden!important;
   }
   .hero-shell img{
     width:100%!important;
-    height:auto!important;
+    height:100%!important;
     max-height:none!important;
-    object-fit:contain!important;
+    object-fit:fill!important;
     object-position:center center!important;
   }
   .hero-hotspot{
-    left:16%!important;top:47%!important;width:68%!important;height:18%!important;
+    left:30%!important;top:42%!important;width:40%!important;height:11%!important;
   }
 }
 
