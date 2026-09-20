@@ -37,7 +37,7 @@ button[kind="secondary"]{border-radius:12px!important}
 .back-wrap .stButton>button{background:linear-gradient(135deg,#102a56,#4f46e5)!important;color:#fff!important;border:0!important;border-radius:12px!important;min-height:46px!important;padding:0 20px!important;font-weight:800!important;box-shadow:0 7px 18px rgba(79,70,229,.24)!important}
 .back-wrap .stButton>button:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(79,70,229,.30)!important}
 .hero-shell{position:relative;width:100%;overflow:hidden;border-radius:22px;box-shadow:0 10px 28px rgba(16,42,86,.12);background:white;line-height:0}
-.hero-shell img{display:block;width:100%;height:auto}
+.hero-shell img{display:block;width:100%;height:auto!important;max-height:none!important;object-fit:contain!important}
 .hero-hotspot{position:absolute;left:38.2%;top:43.7%;width:22.5%;height:8.2%;display:block;border-radius:999px;z-index:5;cursor:pointer;background:transparent;-webkit-tap-highlight-color:transparent}
 
 /* FuturePath custom sidebar */
@@ -99,8 +99,7 @@ section[data-testid="stSidebar"] header{background:transparent!important}
 }
 
 @media(max-width:700px){
-  /* MOBILE: make the cinematic homepage a full-screen hero.
-     Do NOT reset the image height back to auto here. */
+  /* MOBILE: show the complete homepage image without cropping. */
   .block-container{
     width:100%!important;
     max-width:none!important;
@@ -111,24 +110,24 @@ section[data-testid="stSidebar"] header{background:transparent!important}
     position:relative!important;
     width:100vw!important;
     max-width:100vw!important;
-    height:calc(100svh - 8px)!important;
-    min-height:540px!important;
+    height:auto!important;
+    min-height:0!important;
     max-height:none!important;
     margin-left:calc(50% - 50vw)!important;
     margin-right:calc(50% - 50vw)!important;
     border-radius:0!important;
-    overflow:hidden!important;
+    overflow:visible!important;
     box-shadow:none!important;
     background:#07142d!important;
   }
   .hero-shell img{
     display:block!important;
     width:100%!important;
-    height:100%!important;
+    height:auto!important;
     max-width:none!important;
     max-height:none!important;
-    object-fit:cover!important;
-    object-position:center 47%!important;
+    object-fit:contain!important;
+    object-position:center center!important;
   }
   /* Large touch area around the Start Your Journey button in the artwork. */
   .hero-hotspot{
@@ -179,9 +178,10 @@ section[data-testid="stSidebar"] header{background:transparent!important}
   }
   .hero-shell img{
     width:100%!important;
-    height:100%!important;
-    object-fit:cover!important;
-    object-position:center 47%!important;
+    height:auto!important;
+    max-height:none!important;
+    object-fit:contain!important;
+    object-position:center center!important;
   }
   .hero-hotspot{
     left:16%!important;top:47%!important;width:68%!important;height:18%!important;
