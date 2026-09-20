@@ -99,8 +99,31 @@ section[data-testid="stSidebar"] header{background:transparent!important}
 }
 
 @media(max-width:700px){
-  .hero-shell img{max-width:100%!important;height:auto!important;object-fit:contain!important}
-  .block-container{padding:.65rem .55rem 2rem!important}
+  /* Mobile homepage: make the cinematic hero fill the screen instead of shrinking to a tiny banner. */
+  .block-container{padding:.25rem .15rem 1.25rem!important}
+  .hero-shell{
+    width:100%!important;
+    height:calc(100svh - 20px)!important;
+    min-height:520px!important;
+    max-height:900px!important;
+    overflow:hidden!important;
+    border-radius:0!important;
+  }
+  .hero-shell img{
+    width:100%!important;
+    height:100%!important;
+    max-width:none!important;
+    object-fit:cover!important;
+    object-position:center center!important;
+    display:block!important;
+  }
+  /* Larger touch target for the Start Your Journey hotspot on phones. */
+  .hero-hotspot{
+    left:27%!important;
+    top:43%!important;
+    width:46%!important;
+    height:12%!important;
+  }
   .fp-title{font-size:1.55rem!important;line-height:1.18!important}
   .fp-sub{font-size:.94rem!important;line-height:1.45!important}
   .fp-section{font-size:1.25rem!important;margin:17px 0 7px!important}
