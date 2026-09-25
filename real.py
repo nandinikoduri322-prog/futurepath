@@ -1,5 +1,11 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import base64
+import hashlib
+import uuid
+import os
+import json
+import requests
 
 st.set_page_config(
     page_title="FuturePath",
@@ -21,6 +27,8 @@ st.markdown("""
 .block-container{padding-top:1rem;max-width:1400px}
 button[kind="secondary"]{border-radius:12px!important}
 .fp-title{font-size:2.4rem;font-weight:900;color:var(--ink);margin:8px 0 4px}
+.fp-chat-user{margin-left:auto}
+.fp-chat-ai{margin-right:auto}
 .fp-sub{color:var(--muted);font-size:1.02rem;margin-bottom:18px}
 .fp-section{font-size:1.65rem;font-weight:850;color:var(--ink);margin:22px 0 8px}
 .fp-card{background:rgba(255,255,255,.92);border:1px solid #e5e7eb;border-radius:20px;padding:20px;box-shadow:0 8px 24px rgba(30,41,59,.08);height:100%;}
@@ -59,6 +67,7 @@ section[data-testid="stSidebar"] button[kind="secondary"]{border:1px solid trans
 section[data-testid="stSidebar"] button[kind="secondary"]:hover{background:rgba(113,83,232,.17) !important;border-color:rgba(126,101,239,.22) !important}
 .fp-side-spacer{height:250px}
 .fp-side-footer{color:#a9b9df;font-style:italic;font-size:.95rem;line-height:1.25;text-align:center;padding:8px 12px 16px}
+.fp-side-mini{margin-top:12px;padding:10px 12px;border:1px solid rgba(255,255,255,.12);border-radius:14px;color:#fff;background:rgba(255,255,255,.05);font-size:.88rem;line-height:1.35}.fp-side-mini span{color:#a9b9df}
 @media(max-width:800px){.fp-side-spacer{height:90px}}
 
 @media(max-width:900px){.fp-title{font-size:2rem}}
@@ -78,7 +87,6 @@ html,body,#root{margin:0!important;min-width:0!important;overflow-x:hidden!impor
 .stTextInput input,.stSelectbox div[data-baseweb="select"]{max-width:100%!important;}
 
 /* Remove native Streamlit sidebar navigation/list controls that can duplicate our custom panel. */
-section[data-testid="stSidebar"] .stSelectbox{display:none!important;}
 section[data-testid="stSidebar"] [data-testid="stSidebarNav"]{display:none!important;}
 section[data-testid="stSidebar"] header{background:transparent!important;}
 section[data-testid="stSidebar"]{box-sizing:border-box!important;overflow-x:hidden!important;}
@@ -203,6 +211,7 @@ LANG = {
 "Malayalam":{"home":"ഹോം","journey":"നിങ്ങളുടെ യാത്ര ആരംഭിക്കുക","ai":"AI അസിസ്റ്റന്റ്","help":"ഹെൽപ്പ് ഡെസ്ക്","back":"← തിരികെ","subjects":"വിഷയങ്ങൾ","courses":"കോഴ്സുകൾ / അടുത്ത ഡിഗ്രികൾ","skills":"സ്കിൽസ്","projects":"പ്രോജക്റ്റുകൾ","intern":"ഇന്റേൺഷിപ്പ് റോളുകൾ","careers":"ജോബ് റോളുകൾ","tree":"ഗ്രാജുവേഷൻ ട്രീ","mtech":"B.Tech കഴിഞ്ഞുള്ള M.Tech","ms":"B.Tech കഴിഞ്ഞുള്ള MS"},
 "Marathi":{"home":"होम","journey":"तुमचा प्रवास सुरू करा","ai":"AI सहाय्यक","help":"मदत केंद्र","back":"← मागे","subjects":"विषय","courses":"कोर्स / पुढील पदवी","skills":"कौशल्ये","projects":"प्रकल्प","intern":"इंटर्नशिप भूमिका","careers":"नोकरी भूमिका","tree":"ग्रॅज्युएशन ट्री","mtech":"B.Tech नंतर M.Tech","ms":"B.Tech नंतर MS"},
 "Bengali":{"home":"হোম","journey":"আপনার যাত্রা শুরু করুন","ai":"AI অ্যাসিস্ট্যান্ট","help":"হেল্প ডেস্ক","back":"← ফিরে যান","subjects":"বিষয়","courses":"কোর্স / পরবর্তী ডিগ্রি","skills":"দক্ষতা","projects":"প্রজেক্ট","intern":"ইন্টার্নশিপ ভূমিকা","careers":"চাকরির ভূমিকা","tree":"গ্র্যাজুয়েশন ট্রি","mtech":"B.Tech-এর পর M.Tech","ms":"B.Tech-এর পর MS"},
+"WhatsApp":{"home":"Home","journey":"Start Journey cheddam","ai":"AI Assistant 🤖","help":"Help Desk 🆘","back":"← Venakki","subjects":"Subjects chuddam","courses":"Next Courses / Degrees","skills":"Kavali skills","projects":"Projects ideas","intern":"Internship chances","careers":"Job chances","tree":"Career path","mtech":"B.Tech tarvatha M.Tech","ms":"B.Tech tarvatha MS"},
 }
 
 
@@ -699,17 +708,27 @@ COURSE_PROFILE_OVERRIDES = {
 # State
 # ------------------------------------------------------------
 DEFAULT_STATE = {
-    "page":"home","selected_stream":None,"selected_course":None,"selected_branch":None,
-    "selected_diploma":None,"selected_iti":None,"selected_specialization":None,
-    "language":"English","ai_chat":[],"ai_profile":{"stage":"Class 10","stream":"Not selected","goal":"Explore options","interests":""}
+    "page":"home","selected_after10":None,"selected_stream":None,"selected_course":None,"selected_branch":None,
+    "selected_diploma":None,"selected_iti":None,"selected_specialization":None,"selected_higher_program":None,"selected_higher_mode":None,"selected_higher_branch":None,
+    "language":"English","ai_chat":[],"ai_profile":{"stage":"Not selected","stream":"Not selected","goal":"Explore options","interests":""},
+    "backend_student_key": str(uuid.uuid4()),
+    "selected_stage":None,
+    "user_type":"Student","student_id":None,"student_name":"","profile_interests":[],"career_paths":[],"parent_profile":None
 }
 for k,v in DEFAULT_STATE.items():
     if k not in st.session_state:
         st.session_state[k]=v
 
 # Handle the invisible clickable hotspot route without locking the app to the query parameter.
+# The language is carried through the hotspot URL as well, so a browser navigation
+# can never silently reset the student's selected language to English.
 if "page" in st.query_params:
     requested = st.query_params.get("page")
+    requested_lang = st.query_params.get("lang")
+    if requested_lang in LANG:
+        st.session_state.language = requested_lang
+        # Keep the sidebar widget synchronized with the persisted language.
+        st.session_state["sidebar_language_select"] = requested_lang
     if requested in {"journey","ai_assistant","helpdesk","home"}:
         st.session_state.page = requested
     st.query_params.clear()
@@ -729,8 +748,10 @@ def select_stream(name):
     if not name:
         return
     st.session_state.selected_stream=str(name)
+    st.session_state.selected_stage="Intermediate"
     st.session_state.selected_course=None
     st.session_state.selected_specialization=None
+    save_current_profile()
     st.session_state.page="stream"
     st.rerun()
 
@@ -742,17 +763,32 @@ def select_course(name):
     if not name:
         return
     st.session_state.selected_course=name
+    if not st.session_state.get("selected_stage"):
+        st.session_state.selected_stage="Intermediate"
     st.session_state.selected_specialization=None
     if name=="B.Tech / B.E.":
         st.session_state.page="branches"
     else:
         st.session_state.page="course_detail"
+    save_current_profile()
     st.rerun()
 
 def select_branch(name):
     if not name:
         return
-    st.session_state.selected_branch=str(name)
+    name=str(name).strip()
+    if not name or name not in BRANCHES:
+        st.warning("That branch is not available in the current FuturePath catalog.")
+        return
+    st.session_state.selected_branch=name
+    # Keep the origin stage so the flow chart shows the real path.
+    if st.session_state.get("selected_after10") == "Diploma":
+        st.session_state.selected_stage="Diploma"
+    elif st.session_state.get("selected_after10") == "ITI / Vocational":
+        st.session_state.selected_stage="ITI / Vocational"
+    else:
+        st.session_state.selected_stage="Intermediate"
+    save_current_profile()
     st.session_state.page="branch"
     st.rerun()
 
@@ -760,6 +796,8 @@ def select_diploma(name):
     if not name:
         return
     st.session_state.selected_diploma=str(name)
+    st.session_state.selected_stage="Diploma"
+    save_current_profile()
     st.session_state.page="diploma_detail"
     st.rerun()
 
@@ -767,7 +805,18 @@ def select_iti(name):
     if not name:
         return
     st.session_state.selected_iti=str(name)
+    st.session_state.selected_stage="ITI / Vocational"
+    save_current_profile()
     st.session_state.page="iti_detail"
+    st.rerun()
+
+def select_higher_program(program, mode, branch):
+    if not program:
+        return
+    st.session_state.selected_higher_program = str(program)
+    st.session_state.selected_higher_mode = str(mode)
+    st.session_state.selected_higher_branch = str(branch)
+    st.session_state.page = "higher_detail"
     st.rerun()
 
 def render_back(target, key):
@@ -930,28 +979,376 @@ def course_profile(name):
     return {"description":desc,"subjects":subjects,"skills":skills,"projects":projects,"internships":internships,"careers":careers,"higher":higher,"branches":branches}
 
 # ------------------------------------------------------------
-# Custom FuturePath sidebar — ONE navigation only.
+# Custom FuturePath sidebar — ONE navigation only, without a duplicate language picker.
 # ------------------------------------------------------------
+# CURRENT-STAGE OPTIONS + LOCALIZED UI
+# ------------------------------------------------------------
+STAGE_OPTIONS = [
+    "Class 10",
+    "Intermediate",
+    "Diploma / Polytechnic",
+    "ITI / Vocational",
+    "Graduation / Degree Student",
+]
+
+UI_TRANSLATIONS = {
+    "English": {"create_profile":"Create Student Profile","student_name":"Student name","current_stage":"Current stage","choose_stage":"Choose your current stage","update_stage":"Update Stage & Path","after10":"After Class 10","choose_stream":"Choose Intermediate Stream","choose_course":"Choose Course / Degree","your_profile":"Your Student Profile","student_id":"Student ID","save_profile":"Save Profile","flowchart":"Flow Chart","copy":"Copy Flowchart","copied":"Copied","ai_title":"FuturePath AI Assistant","ai_sub":"Ask anything about your education and career path.","message":"Message","paste_flow":"Paste your FuturePath flowchart","cost":"Cost Estimation","calculate":"Calculate Full Approximate Cost","approx_total":"Approximate Total","full_details":"Full Cost Details","fee_note":"Fee ranges are planning estimates. Replace the configurable fee profile with your institution/corporation fee schedule for exact project values.","not_included":"Not included","select_stream_hint":"Choose a stream to see only its course options.","select_course_hint":"Choose a course to continue to its branches and detailed roadmap."},
+    "Telugu": {"create_profile":"విద్యార్థి ప్రొఫైల్ సృష్టించండి","student_name":"విద్యార్థి పేరు","current_stage":"ప్రస్తుత స్థాయి","choose_stage":"మీ ప్రస్తుత స్థాయిని ఎంచుకోండి","update_stage":"స్థాయి & మార్గాన్ని అప్డేట్ చేయండి","after10":"10వ తరగతి తర్వాత","choose_stream":"ఇంటర్ స్ట్రీమ్ ఎంచుకోండి","choose_course":"కోర్సు / డిగ్రీ ఎంచుకోండి","your_profile":"మీ విద్యార్థి ప్రొఫైల్","student_id":"విద్యార్థి ID","save_profile":"ప్రొఫైల్ సేవ్ చేయండి","flowchart":"ఫ్లోచార్ట్","copy":"ఫ్లోచార్ట్ కాపీ చేయండి","copied":"కాపీ అయ్యింది","ai_title":"FuturePath AI అసిస్టెంట్","ai_sub":"మీ చదువు మరియు కెరీర్ గురించి ఏదైనా అడగండి.","message":"మెసేజ్","paste_flow":"మీ FuturePath ఫ్లోచార్ట్ ఇక్కడ పేస్ట్ చేయండి","cost":"ఖర్చు అంచనా","calculate":"పూర్తి అంచనా ఖర్చు లెక్కించండి","approx_total":"సుమారు మొత్తం","full_details":"పూర్తి ఖర్చు వివరాలు","fee_note":"ఇవి ప్లానింగ్ అంచనాలు. మీ సంస్థ/కార్పొరేషన్ ఫీజు షెడ్యూల్‌ను మార్చి ప్రాజెక్ట్‌లో ఉపయోగించవచ్చు.","not_included":"చేర్చనివి","select_stream_hint":"ఒక స్ట్రీమ్ ఎంచుకుంటే ఆ స్ట్రీమ్‌కు సంబంధించిన కోర్సులు మాత్రమే కనిపిస్తాయి.","select_course_hint":"కోర్సును ఎంచుకుని తర్వాత దాని బ్రాంచులు మరియు వివరాలను చూడండి."},
+    "Hindi": {"create_profile":"छात्र प्रोफ़ाइल बनाएं","student_name":"छात्र का नाम","current_stage":"वर्तमान स्तर","choose_stage":"अपना वर्तमान स्तर चुनें","update_stage":"स्तर और मार्ग अपडेट करें","after10":"कक्षा 10 के बाद","choose_stream":"इंटरमीडिएट स्ट्रीम चुनें","choose_course":"कोर्स / डिग्री चुनें","your_profile":"आपकी छात्र प्रोफ़ाइल","student_id":"छात्र ID","save_profile":"प्रोफ़ाइल सेव करें","flowchart":"फ़्लोचार्ट","copy":"फ़्लोचार्ट कॉपी करें","copied":"कॉपी हो गया","ai_title":"FuturePath AI असिस्टेंट","ai_sub":"अपनी पढ़ाई और करियर के बारे में कुछ भी पूछें।","message":"संदेश","paste_flow":"अपना FuturePath फ़्लोचार्ट यहाँ पेस्ट करें","cost":"लागत अनुमान","calculate":"पूरा अनुमानित खर्च निकालें","approx_total":"अनुमानित कुल","full_details":"पूरी लागत विवरण","fee_note":"ये योजना बनाने के अनुमान हैं। सही प्रोजेक्ट मूल्यों के लिए संस्था/कॉरपोरेशन फीस प्रोफ़ाइल बदलें।","not_included":"शामिल नहीं","select_stream_hint":"स्ट्रीम चुनने पर उसी स्ट्रीम के कोर्स दिखेंगे।","select_course_hint":"कोर्स चुनें और फिर उसकी शाखाएँ व पूरी जानकारी देखें।"},
+    "Tamil": {"create_profile":"மாணவர் சுயவிவரம் உருவாக்கவும்","student_name":"மாணவர் பெயர்","current_stage":"தற்போதைய நிலை","choose_stage":"தற்போதைய நிலையைத் தேர்வு செய்யவும்","update_stage":"நிலை மற்றும் பாதையை புதுப்பிக்கவும்","after10":"10ஆம் வகுப்புக்குப் பிறகு","choose_stream":"இன்டர்மீடியேட் ஸ்ட்ரீமைத் தேர்வு செய்யவும்","choose_course":"பாடநெறி / பட்டத்தைத் தேர்வு செய்யவும்","your_profile":"உங்கள் மாணவர் சுயவிவரம்","student_id":"மாணவர் ID","save_profile":"சுயவிவரத்தை சேமிக்கவும்","flowchart":"ஃப்ளோசார்ட்","copy":"ஃப்ளோசார்ட்டை நகலெடுக்கவும்","copied":"நகலெடுக்கப்பட்டது","ai_title":"FuturePath AI உதவியாளர்","ai_sub":"உங்கள் படிப்பு மற்றும் தொழில் பற்றி எதையும் கேளுங்கள்.","message":"செய்தி","paste_flow":"உங்கள் FuturePath ஃப்ளோசார்ட்டை இங்கே ஒட்டவும்","cost":"செலவு மதிப்பீடு","calculate":"முழு தோராய செலவை கணக்கிடவும்","approx_total":"தோராய மொத்தம்","full_details":"முழு செலவு விவரங்கள்","fee_note":"இவை திட்டமிடல் மதிப்பீடுகள். உங்கள் நிறுவனம்/கார்ப்பரேஷன் கட்டண விவரங்களை மாற்றிப் பயன்படுத்தவும்.","not_included":"சேர்க்கப்படவில்லை","select_stream_hint":"ஸ்ட்ரீமை தேர்வு செய்தால் அதற்கான பாடநெறிகள் மட்டும் தோன்றும்.","select_course_hint":"பாடநெறியை தேர்வு செய்து அதன் கிளைகள் மற்றும் விவரங்களை பார்க்கவும்."},
+    "Kannada": {"create_profile":"ವಿದ್ಯಾರ್ಥಿ ಪ್ರೊಫೈಲ್ ರಚಿಸಿ","student_name":"ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರು","current_stage":"ಪ್ರಸ್ತುತ ಹಂತ","choose_stage":"ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಹಂತವನ್ನು ಆಯ್ಕೆಮಾಡಿ","update_stage":"ಹಂತ ಮತ್ತು ಮಾರ್ಗವನ್ನು ಅಪ್‌ಡೇಟ್ ಮಾಡಿ","after10":"10ನೇ ತರಗತಿಯ ನಂತರ","choose_stream":"ಇಂಟರ್ಮೀಡಿಯೇಟ್ ಸ್ಟ್ರೀಮ್ ಆಯ್ಕೆಮಾಡಿ","choose_course":"ಕೋರ್ಸ್ / ಪದವಿ ಆಯ್ಕೆಮಾಡಿ","your_profile":"ನಿಮ್ಮ ವಿದ್ಯಾರ್ಥಿ ಪ್ರೊಫೈಲ್","student_id":"ವಿದ್ಯಾರ್ಥಿ ID","save_profile":"ಪ್ರೊಫೈಲ್ ಉಳಿಸಿ","flowchart":"ಫ್ಲೋಚಾರ್ಟ್","copy":"ಫ್ಲೋಚಾರ್ಟ್ ಕಾಪಿ ಮಾಡಿ","copied":"ಕಾಪಿಯಾಗಿದೆ","ai_title":"FuturePath AI ಸಹಾಯಕ","ai_sub":"ನಿಮ್ಮ ಓದು ಮತ್ತು ವೃತ್ತಿ ಕುರಿತು ಏನನ್ನಾದರೂ ಕೇಳಿ.","message":"ಸಂದೇಶ","paste_flow":"ನಿಮ್ಮ FuturePath ಫ್ಲೋಚಾರ್ಟ್ ಅನ್ನು ಇಲ್ಲಿ ಪೇಸ್ಟ್ ಮಾಡಿ","cost":"ವೆಚ್ಚ ಅಂದಾಜು","calculate":"ಪೂರ್ಣ ಅಂದಾಜು ವೆಚ್ಚ ಲೆಕ್ಕಿಸಿ","approx_total":"ಅಂದಾಜು ಒಟ್ಟು","full_details":"ಪೂರ್ಣ ವೆಚ್ಚ ವಿವರಗಳು","fee_note":"ಇವು ಯೋಜನಾ ಅಂದಾಜುಗಳು. ನಿಖರ ಮೌಲ್ಯಗಳಿಗಾಗಿ ನಿಮ್ಮ ಸಂಸ್ಥೆ/ಕಾರ್ಪೊರೇಷನ್ ಶುಲ್ಕ ಪ್ರೊಫೈಲ್ ಬದಲಿಸಿ.","not_included":"ಒಳಗೊಂಡಿಲ್ಲ","select_stream_hint":"ಸ್ಟ್ರೀಮ್ ಆಯ್ಕೆ ಮಾಡಿದರೆ ಆ ಸ್ಟ್ರೀಮ್‌ನ ಕೋರ್ಸ್‌ಗಳು ಮಾತ್ರ ಕಾಣುತ್ತವೆ.","select_course_hint":"ಕೋರ್ಸ್ ಆಯ್ಕೆ ಮಾಡಿ ಮತ್ತು ಅದರ ಶಾಖೆಗಳು ಹಾಗೂ ವಿವರಗಳನ್ನು ನೋಡಿ."},
+    "Malayalam": {"create_profile":"വിദ്യാർത്ഥി പ്രൊഫൈൽ സൃഷ്ടിക്കുക","student_name":"വിദ്യാർത്ഥിയുടെ പേര്","current_stage":"നിലവിലെ ഘട്ടം","choose_stage":"നിലവിലെ ഘട്ടം തിരഞ്ഞെടുക്കുക","update_stage":"ഘട്ടവും വഴിയും അപ്ഡേറ്റ് ചെയ്യുക","after10":"10-ാം ക്ലാസിന് ശേഷം","choose_stream":"ഇന്റർമീഡിയറ്റ് സ്ട്രീം തിരഞ്ഞെടുക്കുക","choose_course":"കോഴ്സ് / ഡിഗ്രി തിരഞ്ഞെടുക്കുക","your_profile":"നിങ്ങളുടെ വിദ്യാർത്ഥി പ്രൊഫൈൽ","student_id":"വിദ്യാർത്ഥി ID","save_profile":"പ്രൊഫൈൽ സേവ് ചെയ്യുക","flowchart":"ഫ്ലോചാർട്ട്","copy":"ഫ്ലോചാർട്ട് കോപ്പി ചെയ്യുക","copied":"കോപ്പി ചെയ്തു","ai_title":"FuturePath AI അസിസ്റ്റന്റ്","ai_sub":"പഠനവും കരിയറും കുറിച്ച് എന്തും ചോദിക്കൂ.","message":"മെസേജ്","paste_flow":"നിങ്ങളുടെ FuturePath ഫ്ലോചാർട്ട് ഇവിടെ പേസ്റ്റ് ചെയ്യുക","cost":"ചെലവ് കണക്കാക്കൽ","calculate":"മുഴുവൻ ഏകദേശ ചെലവ് കണക്കാക്കുക","approx_total":"ഏകദേശ മൊത്തം","full_details":"മുഴുവൻ ചെലവ് വിശദാംശങ്ങൾ","fee_note":"ഇവ പ്ലാനിംഗ് എസ്റ്റിമേറ്റുകളാണ്. നിങ്ങളുടെ സ്ഥാപനത്തിന്റെ/കോർപ്പറേഷന്റെ ഫീസ് പ്രൊഫൈൽ മാറ്റുക.","not_included":"ഉൾപ്പെടുത്തിയിട്ടില്ല","select_stream_hint":"സ്ട്രീം തിരഞ്ഞെടുക്കുമ്പോൾ അതിലെ കോഴ്സുകൾ മാത്രം കാണിക്കും.","select_course_hint":"കോഴ്സ് തിരഞ്ഞെടുത്ത് അതിന്റെ ബ്രാഞ്ചുകളും വിശദാംശങ്ങളും കാണുക."},
+    "Marathi": {"create_profile":"विद्यार्थी प्रोफाइल तयार करा","student_name":"विद्यार्थ्याचे नाव","current_stage":"सध्याचा टप्पा","choose_stage":"तुमचा सध्याचा टप्पा निवडा","update_stage":"टप्पा आणि मार्ग अपडेट करा","after10":"इयत्ता 10 नंतर","choose_stream":"इंटरमिजिएट स्ट्रीम निवडा","choose_course":"कोर्स / पदवी निवडा","your_profile":"तुमचे विद्यार्थी प्रोफाइल","student_id":"विद्यार्थी ID","save_profile":"प्रोफाइल सेव्ह करा","flowchart":"फ्लोचार्ट","copy":"फ्लोचार्ट कॉपी करा","copied":"कॉपी झाले","ai_title":"FuturePath AI सहाय्यक","ai_sub":"तुमच्या शिक्षण आणि करिअरबद्दल काहीही विचारा.","message":"संदेश","paste_flow":"तुमचा FuturePath फ्लोचार्ट येथे पेस्ट करा","cost":"खर्चाचा अंदाज","calculate":"पूर्ण अंदाजे खर्च मोजा","approx_total":"अंदाजे एकूण","full_details":"पूर्ण खर्च तपशील","fee_note":"हे नियोजनासाठी अंदाज आहेत. अचूक प्रोजेक्टसाठी तुमच्या संस्था/कॉरपोरेशन फी प्रोफाइलचा वापर करा.","not_included":"समाविष्ट नाही","select_stream_hint":"स्ट्रीम निवडल्यानंतर फक्त त्या स्ट्रीमचे कोर्स दिसतील.","select_course_hint":"कोर्स निवडा आणि त्याच्या शाखा व पूर्ण माहिती पहा."},
+    "Bengali": {"create_profile":"শিক্ষার্থী প্রোফাইল তৈরি করুন","student_name":"শিক্ষার্থীর নাম","current_stage":"বর্তমান স্তর","choose_stage":"আপনার বর্তমান স্তর বেছে নিন","update_stage":"স্তর ও পথ আপডেট করুন","after10":"ক্লাস 10-এর পরে","choose_stream":"ইন্টারমিডিয়েট স্ট্রিম বেছে নিন","choose_course":"কোর্স / ডিগ্রি বেছে নিন","your_profile":"আপনার শিক্ষার্থী প্রোফাইল","student_id":"শিক্ষার্থী ID","save_profile":"প্রোফাইল সেভ করুন","flowchart":"ফ্লোচার্ট","copy":"ফ্লোচার্ট কপি করুন","copied":"কপি হয়েছে","ai_title":"FuturePath AI অ্যাসিস্ট্যান্ট","ai_sub":"আপনার পড়াশোনা ও ক্যারিয়ার নিয়ে যেকোনো প্রশ্ন করুন।","message":"বার্তা","paste_flow":"আপনার FuturePath ফ্লোচার্ট এখানে পেস্ট করুন","cost":"খরচের অনুমান","calculate":"সম্পূর্ণ আনুমানিক খরচ হিসাব করুন","approx_total":"আনুমানিক মোট","full_details":"সম্পূর্ণ খরচের বিবরণ","fee_note":"এগুলো পরিকল্পনার জন্য অনুমান। সঠিক প্রজেক্ট মানের জন্য আপনার প্রতিষ্ঠান/কর্পোরেশনের ফি প্রোফাইল বদলান।","not_included":"অন্তর্ভুক্ত নয়","select_stream_hint":"স্ট্রিম বেছে নিলে শুধু সেই স্ট্রিমের কোর্স দেখা যাবে।","select_course_hint":"কোর্স বেছে নিয়ে তার শাখা ও সম্পূর্ণ বিবরণ দেখুন।"},
+    "WhatsApp": {"create_profile":"🎓 Student profile create cheddam","student_name":"Nee peru","current_stage":"Nee current stage","choose_stage":"Nee current stage select cheyyi","update_stage":"Stage + path update cheyyi","after10":"10th tarvatha","choose_stream":"Inter stream select cheyyi","choose_course":"Course / Degree select cheyyi","your_profile":"Nee Student Profile","student_id":"Student ID","save_profile":"Profile save cheyyi","flowchart":"Flowchart","copy":"Flowchart copy cheyyi","copied":"Copied ✅","ai_title":"FuturePath AI Assistant 🤖","ai_sub":"Nee studies & career gurinchi edaina adugu.","message":"Message","paste_flow":"Nee FuturePath flowchart ikkada paste cheyyi","cost":"Cost Estimate 💰","calculate":"Full approx cost calculate cheyyi","approx_total":"Approx Total","full_details":"Full cost details","fee_note":"Idi planning estimate. Mee college/corporation fee profile ni configure chesi project values use cheyyachu.","not_included":"Not included","select_stream_hint":"Stream select chesthe aa stream courses matrame chupistha.","select_course_hint":"Course select cheyyi; next branches + full details chupistha."},
+}
+
+def ui(key):
+    lang=st.session_state.get("language","English")
+    return UI_TRANSLATIONS.get(lang,UI_TRANSLATIONS["English"]).get(key,UI_TRANSLATIONS["English"].get(key,key))
+
+LANGUAGE_PAGE_TRANSLATIONS = {
+    "English": {"language_page":"Choose Language","select_language":"Select your preferred language","language_saved":"Language updated"},
+    "Telugu": {"language_page":"భాషను ఎంచుకోండి","select_language":"మీకు ఇష్టమైన భాషను ఎంచుకోండి","language_saved":"భాష అప్డేట్ అయ్యింది"},
+    "Hindi": {"language_page":"भाषा चुनें","select_language":"अपनी पसंदीदा भाषा चुनें","language_saved":"भाषा अपडेट हो गई"},
+    "Tamil": {"language_page":"மொழியைத் தேர்ந்தெடுக்கவும்","select_language":"உங்களுக்கு விருப்பமான மொழியைத் தேர்வு செய்யவும்","language_saved":"மொழி புதுப்பிக்கப்பட்டது"},
+    "Kannada": {"language_page":"ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ","select_language":"ನಿಮ್ಮ ಮೆಚ್ಚಿನ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ","language_saved":"ಭಾಷೆ ಅಪ್‌ಡೇಟ್ ಆಗಿದೆ"},
+    "Malayalam": {"language_page":"ഭാഷ തിരഞ്ഞെടുക്കുക","select_language":"നിങ്ങളുടെ ഇഷ്ടഭാഷ തിരഞ്ഞെടുക്കുക","language_saved":"ഭാഷ അപ്ഡേറ്റ് ചെയ്തു"},
+    "Marathi": {"language_page":"भाषा निवडा","select_language":"तुमची पसंतीची भाषा निवडा","language_saved":"भाषा अपडेट झाली"},
+    "Bengali": {"language_page":"ভাষা বেছে নিন","select_language":"আপনার পছন্দের ভাষা বেছে নিন","language_saved":"ভাষা আপডেট হয়েছে"},
+    "WhatsApp": {"language_page":"Language select cheyyi","select_language":"Nee preferred language select cheyyi","language_saved":"Language update ayindi ✅"},
+}
+
+for _lang, _vals in LANGUAGE_PAGE_TRANSLATIONS.items():
+    UI_TRANSLATIONS[_lang].update(_vals)
+
+# Extra UI strings used by the unified journey, chat and cost screens.
+UI_TRANSLATIONS["English"].update({
+    "language_page":"Choose Language",
+    "select_language":"Select your preferred language",
+    "language_saved":"Language updated",
+    "after10_option":"Choose your path after Class 10",
+    "inter_stream":"Intermediate stream",
+    "diploma_course":"Diploma / Polytechnic course",
+    "iti_trade":"ITI / Vocational trade",
+    "degree_course":"Degree / course",
+    "send":"Send",
+    "clear":"Clear conversation",
+    "visual_cost":"Visual Approximate Cost",
+    "fee_profile":"Configured Corporation Fee Profile",
+    "tuition":"Tuition / course fee",
+    "exam_lab":"Exam / lab / academic charges",
+    "books":"Books / basic academic materials",
+    "duration":"Duration",
+    "stage_subtotal":"Stage subtotal",
+    "path_stages":"Path stages",
+    "higher_alternatives":"Higher-study alternatives",
+    "optional_setup":"Optional study / project setup",
+    "message_sent":"Message sent",
+    "flowchart_detected":"Flowchart detected — approximate cost is shown below.",
+    "welcome_ai":"Hi! 👋 Ask about your selected path, subjects, skills, projects, internships, jobs, higher studies or cost.",
+    "choose_name":"Please enter the student's name.",
+})
+# Extra localized strings for the language page, AI chat and Help Desk.
+UI_TRANSLATIONS["English"].update({
+    "language_button":"Choose Language", "you_label":"You", "ai_label":"FuturePath AI 🤖", "close_cost":"Close cost view",
+    "help_intro":"Use FuturePath step by step: create your profile, choose your current stage, select the matching course/path, explore branches, then view subjects, skills, projects, internships, jobs and higher studies.",
+    "help_title":"FuturePath Help Desk", "faq":"Common Questions",
+})
+UI_TRANSLATIONS["Telugu"].update({
+    "language_button":"భాషను ఎంచుకోండి", "you_label":"మీరు", "ai_label":"FuturePath AI 🤖", "close_cost":"ఖర్చు వివరాలు మూసివేయండి",
+    "help_intro":"FuturePath ను స్టెప్ బై స్టెప్ ఉపయోగించండి: ప్రొఫైల్ సృష్టించండి, ప్రస్తుత స్థాయి ఎంచుకోండి, సంబంధిత కోర్సు/మార్గం ఎంచుకోండి, బ్రాంచ్‌లను చూడండి, తర్వాత సబ్జెక్ట్స్, స్కిల్స్, ప్రాజెక్ట్స్, ఇంటర్న్‌షిప్స్, ఉద్యోగాలు మరియు హయ్యర్ స్టడీస్ చూడండి.",
+    "help_title":"FuturePath హెల్ప్ డెస్క్", "faq":"సాధారణ ప్రశ్నలు",
+})
+UI_TRANSLATIONS["Hindi"].update({
+    "language_button":"भाषा चुनें", "you_label":"आप", "ai_label":"FuturePath AI 🤖", "close_cost":"लागत दृश्य बंद करें",
+    "help_intro":"FuturePath को चरणों में उपयोग करें: प्रोफ़ाइल बनाएं, वर्तमान स्तर चुनें, सही कोर्स/मार्ग चुनें, शाखाएँ देखें और फिर विषय, कौशल, प्रोजेक्ट, इंटर्नशिप, नौकरी तथा उच्च शिक्षा देखें।",
+    "help_title":"FuturePath हेल्प डेस्क", "faq":"सामान्य प्रश्न",
+})
+UI_TRANSLATIONS["Tamil"].update({
+    "language_button":"மொழியைத் தேர்வு செய்யவும்", "you_label":"நீங்கள்", "ai_label":"FuturePath AI 🤖", "close_cost":"செலவு காட்சியை மூடவும்",
+    "help_intro":"FuturePath ஐ படிப்படியாக பயன்படுத்தவும்: சுயவிவரம் உருவாக்கி, தற்போதைய நிலையைத் தேர்வு செய்து, சரியான பாடநெறி/பாதையைத் தேர்வு செய்து, கிளைகள், பாடங்கள், திறன்கள், திட்டங்கள், இன்டர்ன்ஷிப், வேலைகள் மற்றும் உயர் கல்வியைப் பார்க்கவும்.",
+    "help_title":"FuturePath உதவி மையம்", "faq":"பொதுவான கேள்விகள்",
+})
+UI_TRANSLATIONS["Kannada"].update({
+    "language_button":"ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ", "you_label":"ನೀವು", "ai_label":"FuturePath AI 🤖", "close_cost":"ವೆಚ್ಚದ ವೀಕ್ಷಣೆಯನ್ನು ಮುಚ್ಚಿ",
+    "help_intro":"FuturePath ಅನ್ನು ಹಂತ ಹಂತವಾಗಿ ಬಳಸಿ: ಪ್ರೊಫೈಲ್ ರಚಿಸಿ, ಪ್ರಸ್ತುತ ಹಂತ ಆಯ್ಕೆಮಾಡಿ, ಸರಿಯಾದ ಕೋರ್ಸ್/ಪಥ ಆಯ್ಕೆಮಾಡಿ, ನಂತರ ಶಾಖೆಗಳು, ವಿಷಯಗಳು, ಕೌಶಲ್ಯಗಳು, ಪ್ರಾಜೆಕ್ಟ್‌ಗಳು, ಇಂಟರ್ನ್‌ಶಿಪ್, ಉದ್ಯೋಗಗಳು ಮತ್ತು ಉನ್ನತ ಅಧ್ಯಯನಗಳನ್ನು ನೋಡಿ.",
+    "help_title":"FuturePath ಸಹಾಯ ಕೇಂದ್ರ", "faq":"ಸಾಮಾನ್ಯ ಪ್ರಶ್ನೆಗಳು",
+})
+UI_TRANSLATIONS["Malayalam"].update({
+    "language_button":"ഭാഷ തിരഞ്ഞെടുക്കുക", "you_label":"നിങ്ങൾ", "ai_label":"FuturePath AI 🤖", "close_cost":"ചെലവ് കാഴ്ച അടയ്ക്കുക",
+    "help_intro":"FuturePath ഘട്ടംഘട്ടമായി ഉപയോഗിക്കുക: പ്രൊഫൈൽ സൃഷ്ടിക്കുക, നിലവിലെ ഘട്ടം തിരഞ്ഞെടുക്കുക, ശരിയായ കോഴ്‌സ്/പാത തിരഞ്ഞെടുക്കുക, തുടർന്ന് ബ്രാഞ്ചുകൾ, വിഷയങ്ങൾ, സ്കിൽസ്, പ്രോജക്റ്റുകൾ, ഇന്റേൺഷിപ്പ്, ജോലികൾ, ഉയർന്ന പഠനം എന്നിവ കാണുക.",
+    "help_title":"FuturePath ഹെൽപ്പ് ഡെസ്ക്", "faq":"സാധാരണ ചോദ്യങ്ങൾ",
+})
+UI_TRANSLATIONS["Marathi"].update({
+    "language_button":"भाषा निवडा", "you_label":"तुम्ही", "ai_label":"FuturePath AI 🤖", "close_cost":"खर्च दृश्य बंद करा",
+    "help_intro":"FuturePath टप्प्याटप्प्याने वापरा: विद्यार्थी प्रोफाइल तयार करा, सध्याचा टप्पा निवडा, योग्य कोर्स/मार्ग निवडा आणि नंतर शाखा, विषय, कौशल्ये, प्रोजेक्ट्स, इंटर्नशिप, नोकऱ्या व उच्च शिक्षण पहा.",
+    "help_title":"FuturePath मदत केंद्र", "faq":"सामान्य प्रश्न",
+})
+UI_TRANSLATIONS["Bengali"].update({
+    "language_button":"ভাষা বেছে নিন", "you_label":"আপনি", "ai_label":"FuturePath AI 🤖", "close_cost":"খরচের দৃশ্য বন্ধ করুন",
+    "help_intro":"FuturePath ধাপে ধাপে ব্যবহার করুন: শিক্ষার্থী প্রোফাইল তৈরি করুন, বর্তমান স্তর বেছে নিন, সঠিক কোর্স/পথ বেছে নিন, তারপর শাখা, বিষয়, দক্ষতা, প্রজেক্ট, ইন্টার্নশিপ, চাকরি এবং উচ্চশিক্ষা দেখুন।",
+    "help_title":"FuturePath হেল্প ডেস্ক", "faq":"সাধারণ প্রশ্ন",
+})
+UI_TRANSLATIONS["WhatsApp"].update({
+    "language_button":"🌐 Language select cheyyi", "you_label":"Nuvvu", "ai_label":"FuturePath AI 🤖", "close_cost":"Cost view close cheyyi",
+    "help_title":"FuturePath Help Desk 🆘", "faq":"Common questions 💬",
+    "help_intro":"FuturePath ni step-by-step use cheyyi: first profile create cheyyi, current stage select cheyyi, correct course/path choose cheyyi, tarvatha branches → subjects → skills → projects → internships → jobs → higher studies explore cheyyi.",
+})
+
+UI_TRANSLATIONS["WhatsApp"].update({
+    "language_page":"Language select cheyyi",
+    "select_language":"Nee preferred language select cheyyi",
+    "language_saved":"Language update ayindi ✅",
+    "current_stage":"Nee current stage",
+    "choose_stage":"Nee current stage select cheyyi",
+    "create_profile":"Student profile create cheddam",
+    "student_name":"Student peru",
+    "update_stage":"Stage + path update cheyyi",
+    "after10":"10th tarvatha",
+    "after10_option":"10th tarvatha nee path select cheyyi",
+    "inter_stream":"Inter stream select cheyyi",
+    "diploma_course":"Diploma / Polytechnic course select cheyyi",
+    "iti_trade":"ITI / Vocational trade select cheyyi",
+    "degree_course":"Degree / course select cheyyi",
+    "choose_stream":"Inter stream select cheyyi",
+    "choose_course":"Course / Degree select cheyyi",
+    "your_profile":"Nee Student Profile",
+    "student_id":"Student ID",
+    "save_profile":"Profile save cheyyi",
+    "copy":"Flowchart copy cheyyi",
+    "copied":"Copied ✅",
+    "send":"Send ➤",
+    "clear":"Chat clear cheyyi",
+    "visual_cost":"Approx Cost Visual 💰",
+    "fee_profile":"Use chestunna Corporation Fee Profile",
+    "tuition":"Tuition / course fee",
+    "exam_lab":"Exam / lab / academic charges",
+    "books":"Books / academic materials",
+    "duration":"Duration",
+    "stage_subtotal":"Stage total",
+    "path_stages":"Path stages",
+    "higher_alternatives":"Higher studies options",
+    "optional_setup":"Optional study / project setup",
+    "message_sent":"Message pampincham ✅",
+    "flowchart_detected":"Flowchart detect ayyindi — approx cost kinda chupistha.",
+    "welcome_ai":"Hi 👋 Nee selected path, subjects, skills, projects, internships, jobs, higher studies or cost gurinchi adugu.",
+    "choose_name":"Student peru enter cheyyi.",
+    "full_details":"Full cost details",
+    "not_included":"Include kaaledu",
+    "select_stream_hint":"Stream select chesthe aa stream courses matrame chupistha.",
+    "select_course_hint":"Course select cheyyi; next branches + full details chupistha.",
+    "btech_branches":"B.Tech branches",
+    "choose_branch":"Branch select cheyyi",
+    "open":"Open",
+    "continue":"Continue",
+    "selected_path":"Selected path",
+})
+
+UI_TRANSLATIONS["English"].update({
+    "btech_branches":"B.Tech / B.E. — Engineering Branches", "choose_branch":"Choose Branch", "open":"Open",
+    "continue":"Continue", "selected_path":"Selected path", "student_saved":"Student profile created successfully.",
+    "profile_current":"Current stage", "midpoint":"Midpoint", "stage":"Stage", "subtotal":"Subtotal",
+    "with_optional":"With optional study/project setup", "higher_note":"M.Tech and MS are alternatives; they are not added together.",
+    "not_included_detail":"hostel/rent, food, travel, coaching, personal expenses and scholarships/waivers unless added to the fee profile.",
+    "cost_no_source":"Please select a course/branch or paste the complete FuturePath flowchart.",
+    "other_hidden":"Other Intermediate streams and courses are hidden at this stage.",
+})
+UI_TRANSLATIONS["WhatsApp"].update({
+    "student_saved":"Student profile create ayyindi ✅", "profile_current":"Current stage", "midpoint":"Midpoint",
+    "stage":"Stage", "subtotal":"Stage total", "with_optional":"Optional study/project setup tho",
+    "higher_note":"M.Tech & MS rendu alternatives; rendu kalipi total lo add cheyyam.",
+    "not_included_detail":"Hostel/rent, food, travel, coaching, personal expenses, scholarships/waivers include kaaledu unless fee profile lo add chesthe.",
+    "cost_no_source":"Course/branch select cheyyi leda complete FuturePath flowchart paste cheyyi.",
+    "other_hidden":"Ippudu vere Inter streams/courses chupinchanu.",
+})
+# Complete the common interaction labels for every language so the selected language
+# controls the visible UI instead of silently falling back to English.
+_COMMON_LANG_KEYS = {
+    "English": {"send":"Send","clear":"Clear conversation","visual_cost":"Visual Approximate Cost","old_site":"Previous deployed FuturePath website"},
+    "Telugu": {"send":"కಳುహించండి","clear":"సంభాషణను క్లియర్ చేయండి","visual_cost":"విజువల్ సుమారు ఖర్చు","old_site":"మునుపటి FuturePath వెబ్‌సైట్"},
+    "Hindi": {"send":"भेजें","clear":"बातचीत साफ़ करें","visual_cost":"दृश्य अनुमानित लागत","old_site":"पिछली FuturePath वेबसाइट"},
+    "Tamil": {"send":"அனுப்பவும்","clear":"உரையாடலை அழிக்கவும்","visual_cost":"காட்சி தோராய செலவு","old_site":"முந்தைய FuturePath இணையதளம்"},
+    "Kannada": {"send":"ಕಳುಹಿಸಿ","clear":"ಸಂಭಾಷಣೆಯನ್ನು ತೆರವುಗೊಳಿಸಿ","visual_cost":"ವಿಜುವಲ್ ಅಂದಾಜು ವೆಚ್ಚ","old_site":"ಹಿಂದಿನ FuturePath ವೆಬ್‌ಸೈಟ್"},
+    "Malayalam": {"send":"അയയ്ക്കുക","clear":"സംഭാഷണം മായ്ക്കുക","visual_cost":"വിഷ്വൽ ഏകദേശ ചെലവ്","old_site":"മുമ്പത്തെ FuturePath വെബ്‌സൈറ്റ്"},
+    "Marathi": {"send":"पाठवा","clear":"संभाषण साफ करा","visual_cost":"दृश्य अंदाजे खर्च","old_site":"मागील FuturePath वेबसाइट"},
+    "Bengali": {"send":"পাঠান","clear":"কথোপকথন পরিষ্কার করুন","visual_cost":"দৃশ্যমান আনুমানিক খরচ","old_site":"আগের FuturePath ওয়েবসাইট"},
+    "WhatsApp": {"send":"Send ➤","clear":"Chat clear cheyyi","visual_cost":"Approx Cost Visual 💰","old_site":"Old FuturePath website"},
+}
+for _lang, _vals in _COMMON_LANG_KEYS.items():
+    UI_TRANSLATIONS[_lang].update(_vals)
+
+# Complete WhatsApp / Chat Style wording so visible UI does not fall back to English.
+UI_TRANSLATIONS["WhatsApp"].update({
+    "create_profile":"Student profile create cheddam",
+    "student_name":"Mi peru cheppandi",
+    "current_stage":"Nee current stage enti?",
+    "choose_stage":"Nee current stage select cheyyi",
+    "update_stage":"Student details update cheyyi",
+    "save_profile":"Profile save cheyyi",
+    "student_id":"Student ID",
+    "ai_title":"FuturePath AI Assistant 🤖",
+    "ai_sub":"Nee education + career gurinchi emaina adugu.",
+    "message":"Nee message",
+    "paste_flow":"Flowchart ikkada paste cheyyi",
+    "cost":"Cost Estimate 💰",
+    "calculate":"Full approx cost calculate cheyyi",
+    "approx_total":"Approx Total",
+    "full_details":"Full cost details",
+    "select_stream_hint":"Stream select chesthe aa stream courses matrame chupistha.",
+    "select_course_hint":"Course select cheyyi; next branches + full details chupistha.",
+    "btech_branches":"B.Tech / B.E. branches",
+    "flowchart":"Flow Chart",
+    "copy":"Flowchart copy cheyyi",
+    "copied":"Copied ✅",
+    "ai_label":"FuturePath AI 🤖","you_label":"Nuvvu",
+    "language_button":"🌐 Language select cheyyi","language_page":"Language select cheddam",
+    "select_language":"Nee preferred language select cheyyi","language_saved":"Language update ayindi ✅",
+    "after10_option":"10th tarvatha nee path select cheyyi","inter_stream":"Inter stream select cheyyi",
+    "degree_course":"Degree / course select cheyyi","diploma_course":"Diploma / Polytechnic course select cheyyi",
+    "iti_trade":"ITI / Vocational trade select cheyyi","choose_branch":"Branch select cheyyi",
+    "choose_name":"Student peru enter cheyyi","open":"Open","continue":"Continue",
+    "clear":"Chat clear cheyyi","close_cost":"Cost view close cheyyi","cost_no_source":"Course/branch select cheyyi leda complete FuturePath flowchart paste cheyyi.",
+    "books":"Books / study materials","duration":"Duration","exam_lab":"Exam / lab charges","fee_profile":"Use chestunna Corporation Fee Profile",
+    "flowchart_detected":"Flowchart detect ayyindi — approx cost ikkada chupistha.","midpoint":"Approx midpoint",
+    "old_site":"Old FuturePath website","path_stages":"Path stages","selected_path":"Nee selected path","stage":"Stage",
+    "subjects":"Subjects","subtotal":"Stage total","tuition":"Course / tuition fee","visual_cost":"Approx Cost Visual 💰",
+    "welcome_ai":"Hi 👋 Nee selected path, subjects, skills, projects, internships, jobs, higher studies or cost gurinchi edaina adugu.",
+    "help_title":"FuturePath Help Desk 🆘","help_intro":"FuturePath ni step-by-step use cheyyi: profile → current stage → course/path → branch → subjects → skills → projects → internships → jobs → higher studies.",
+    "explore_interests":"Nee interests explore cheyyi","select_interests":"One or more interests select cheyyi","show_opportunities":"Naa opportunities chupinchu 🎯",
+    "higher_studies":"Higher Studies","subjects_practical":"Subjects / Practical Areas","skills_to_build":"Build cheyyalsina Skills",
+    "possible_roles":"Possible Job Roles","further_pathways":"Further Pathways","progression":"Progression Flowchart",
+    "open_branch":"Branch details open cheyyi →","open_diploma":"Diploma pathway open cheyyi →","open_trade":"Trade pathway open cheyyi →",
+})
+
+
+# Replace these planning ranges with your actual college/corporation fee sheet.
+CORPORATION_FEES={
+    "Intermediate":{"tuition":(20000,120000),"exam_lab":(2000,12000),"books":(3000,10000),"duration":"2 years"},
+    "Diploma / Polytechnic":{"tuition":(30000,180000),"exam_lab":(3000,15000),"books":(5000,15000),"duration":"3 years"},
+    "ITI / Vocational":{"tuition":(10000,80000),"exam_lab":(1500,8000),"books":(2000,7000),"duration":"1–2 years"},
+    "B.Tech / B.E.":{"tuition":(200000,1200000),"exam_lab":(10000,50000),"books":(15000,50000),"duration":"4 years"},
+    "BCA":{"tuition":(100000,600000),"exam_lab":(6000,30000),"books":(10000,30000),"duration":"3 years"},
+    "B.Sc":{"tuition":(90000,600000),"exam_lab":(5000,30000),"books":(10000,30000),"duration":"3–4 years"},
+    "B.Com":{"tuition":(90000,500000),"exam_lab":(3000,18000),"books":(8000,25000),"duration":"3 years"},
+    "BBA":{"tuition":(120000,600000),"exam_lab":(5000,20000),"books":(10000,30000),"duration":"3 years"},
+    "BA":{"tuition":(60000,400000),"exam_lab":(2000,12000),"books":(8000,25000),"duration":"3–4 years"},
+    "MBBS":{"tuition":(500000,12000000),"exam_lab":(15000,80000),"books":(20000,80000),"duration":"5.5 years"},
+    "BDS":{"tuition":(200000,3000000),"exam_lab":(10000,60000),"books":(15000,50000),"duration":"5 years"},
+    "B.Pharm":{"tuition":(150000,600000),"exam_lab":(10000,40000),"books":(12000,35000),"duration":"4 years"},
+    "Nursing":{"tuition":(100000,600000),"exam_lab":(8000,35000),"books":(10000,30000),"duration":"4 years"},
+    "Agriculture":{"tuition":(120000,700000),"exam_lab":(10000,45000),"books":(12000,35000),"duration":"4 years"},
+    "M.Tech":{"tuition":(50000,600000),"exam_lab":(5000,25000),"books":(8000,25000),"duration":"2 years"},
+    "MS India":{"tuition":(200000,1000000),"exam_lab":(5000,30000),"books":(10000,35000),"duration":"1–2 years"},
+    "MS Abroad":{"tuition":(2500000,7000000),"exam_lab":(50000,250000),"books":(30000,100000),"duration":"1–2 years"},
+}
+
+
 with st.sidebar:
     st.markdown('<div class="fp-side-brand"><div class="logo">🎓 <span class="future">Future</span><span class="path">Path</span></div><div class="tag">Your Career. Your Future. Your Path.</div></div>', unsafe_allow_html=True)
+
+    # Single language selector at the very top of the sidebar.
+    # IMPORTANT: keep the widget label stable. A localized widget label can
+    # change Streamlit's widget identity and make the language jump back to English.
+    _language_choices = [
+        "English", "Telugu", "Hindi", "Tamil", "Kannada",
+        "Malayalam", "Marathi", "Bengali", "WhatsApp"
+    ]
+
+    if "sidebar_language_select" not in st.session_state:
+        st.session_state["sidebar_language_select"] = st.session_state.get("language", "English")
+
+    def _apply_sidebar_language():
+        chosen = st.session_state.get("sidebar_language_select", "English")
+        if chosen in _language_choices:
+            st.session_state["language"] = chosen
+
+    _selected_language = st.selectbox(
+        "🌐 Language",
+        _language_choices,
+        key="sidebar_language_select",
+        format_func=lambda x: {
+            "English": "🇬🇧 English",
+            "Telugu": "🇮🇳 తెలుగు",
+            "Hindi": "🇮🇳 हिन्दी",
+            "Tamil": "🇮🇳 தமிழ்",
+            "Kannada": "🇮🇳 ಕನ್ನಡ",
+            "Malayalam": "🇮🇳 മലയാളം",
+            "Marathi": "🇮🇳 मराठी",
+            "Bengali": "🇮🇳 বাংলা",
+            "WhatsApp": "💬 WhatsApp / Chat Style",
+        }.get(x, x),
+        on_change=_apply_sidebar_language,
+    )
+    # Keep the persistent language value synchronized even on the first render.
+    if _selected_language != st.session_state.get("language"):
+        st.session_state["language"] = _selected_language
+
+    # Refresh the localized navigation labels after the sidebar language choice.
+    T = LANG.get(st.session_state.language, LANG["English"])
+    if st.session_state.get("language") == "WhatsApp":
+        st.markdown('<div style="background:linear-gradient(90deg,#16a34a,#0ea5e9);color:white;padding:7px 10px;border-radius:10px;margin:4px 0 10px;font-weight:800;text-align:center;">💬 WhatsApp Chat Style ON • Telugu + English</div>', unsafe_allow_html=True)
+
     current=st.session_state.page
     if current=="home":
-        st.markdown('<div class="fp-side-active">⌂ &nbsp; Home</div>', unsafe_allow_html=True)
+        st.markdown('<div class="fp-side-active">⌂ &nbsp; '+T["home"]+'</div>', unsafe_allow_html=True)
     else:
-        if st.button("⌂  Home", key="side_home", use_container_width=True): go("home")
+        if st.button("⌂  "+T["home"], key="side_home", use_container_width=True): go("home")
     if current=="journey":
-        st.markdown('<div class="fp-side-active">◉ &nbsp; Start Your Journey</div>', unsafe_allow_html=True)
+        st.markdown('<div class="fp-side-active">◉ &nbsp; '+T["journey"]+'</div>', unsafe_allow_html=True)
     else:
-        if st.button("◉  Start Your Journey", key="side_journey", use_container_width=True): go("journey")
+        if st.button("◉  "+T["journey"], key="side_journey", use_container_width=True): go("journey")
     if current=="ai_assistant":
-        st.markdown('<div class="fp-side-active">✦ &nbsp; AI Assistant</div>', unsafe_allow_html=True)
+        st.markdown('<div class="fp-side-active">✦ &nbsp; '+T["ai"]+'</div>', unsafe_allow_html=True)
     else:
-        if st.button("✦  AI Assistant", key="side_ai", use_container_width=True): go("ai_assistant")
+        if st.button("✦  "+T["ai"], key="side_ai", use_container_width=True): go("ai_assistant")
     if current=="helpdesk":
-        st.markdown('<div class="fp-side-active">◉ &nbsp; Help Desk</div>', unsafe_allow_html=True)
+        st.markdown('<div class="fp-side-active">◉ &nbsp; '+T["help"]+'</div>', unsafe_allow_html=True)
     else:
-        if st.button("◉  Help Desk", key="side_help", use_container_width=True): go("helpdesk")
+        if st.button("◉  "+T["help"], key="side_help", use_container_width=True): go("helpdesk")
+    if current=="explorer_profile":
+        st.markdown(f'<div class="fp-side-active">👤 &nbsp; {ui("your_profile")}</div>', unsafe_allow_html=True)
+    else:
+        if st.button("👤  "+ui("your_profile"), key="side_profile", use_container_width=True): go("explorer_profile")
+    if current=="flowchart":
+        st.markdown(f'<div class="fp-side-active">🗺️ &nbsp; {ui("flowchart")}</div>', unsafe_allow_html=True)
+    else:
+        if st.button("🗺️  "+ui("flowchart"), key="side_flow", use_container_width=True): go("flowchart")
+
+    if st.session_state.get("student_id"):
+        st.markdown(f'<div class="fp-side-mini">🎓 {st.session_state.get("student_id")}<br><span>{st.session_state.get("student_name") or "Student"}</span></div>', unsafe_allow_html=True)
+
     st.markdown('<div class="fp-side-spacer"></div><div class="fp-side-footer">Better Choices<br>Brighter Future ♡</div>', unsafe_allow_html=True)
+
+# ------------------------------------------------------------
+# LANGUAGE PAGE
+# ------------------------------------------------------------
+def render_languages():
+    render_back("journey","back_languages")
+    st.markdown(f'<div class="fp-title">🌐 {ui("language_page")}</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-sub">{ui("select_language")}</div>',unsafe_allow_html=True)
+
+    language_items = [
+        ("English", "🇬🇧", "English"),
+        ("Telugu", "🇮🇳", "తెలుగు"),
+        ("Hindi", "🇮🇳", "हिन्दी"),
+        ("Tamil", "🇮🇳", "தமிழ்"),
+        ("Kannada", "🇮🇳", "ಕನ್ನಡ"),
+        ("Malayalam", "🇮🇳", "മലയാളം"),
+        ("Marathi", "🇮🇳", "मराठी"),
+        ("Bengali", "🇮🇳", "বাংলা"),
+        ("WhatsApp", "💬", "WhatsApp / Chat Style"),
+    ]
+    cols=st.columns(3)
+    for i,(code,icon,label) in enumerate(language_items):
+        with cols[i%3]:
+            active = st.session_state.get("language","English") == code
+            st.markdown(f'<div class="fp-card">{icon} <b>{label}</b><br><small>{"✓ Selected" if active else ""}</small></div>',unsafe_allow_html=True)
+            if st.button(label + (" ✓" if active else ""), key=f"language_page_{code}", use_container_width=True):
+                st.session_state.language = code
+                st.session_state["sidebar_language_select"] = code
+                st.success(ui("language_saved"))
+                st.rerun()
 
 # ------------------------------------------------------------
 # HOME — the supplied design, clean and uncluttered.
@@ -969,40 +1366,647 @@ def render_home():
         <source media="(max-width: 700px)" srcset="data:image/png;base64,{MOBILE_HOME_IMAGE_B64}">
         <img src="data:image/png;base64,{HOME_IMAGE_B64}" alt="FuturePath — Your Career. Your Future. Your Path." loading="eager">
       </picture>
-      <a class="hero-hotspot" href="?page=journey" aria-label="Start Your Journey"></a>
+      <a class="hero-hotspot" href="?page=journey&lang={st.session_state.get("language","English")}" aria-label="Start Your Journey"></a>
     </div>
     """, unsafe_allow_html=True)
 
 # ------------------------------------------------------------
+# STUDENT / PARENT PROFILE — merged from the Future Explorer flow.
+# ------------------------------------------------------------
+def _new_student_id():
+    return "FE-" + uuid.uuid4().hex[:8].upper()
+
+def save_current_profile():
+    student_id = st.session_state.get("student_id")
+    name = (st.session_state.get("student_name") or "").strip()
+    if not student_id or not name:
+        return
+    if st.session_state.get("selected_stage") in STAGE_OPTIONS:
+        st.session_state.ai_profile["stage"] = st.session_state.get("selected_stage")
+    profile = {
+        "student_id": student_id,
+        "name": name,
+        "language": st.session_state.get("language", "English"),
+        "stage": st.session_state.get("selected_stage", st.session_state.ai_profile.get("stage", "Class 10")),
+        "course": st.session_state.get("selected_course") or "",
+        "branch": st.session_state.get("selected_branch") or "",
+        "interests": st.session_state.get("profile_interests", []),
+        "career_paths": st.session_state.get("career_paths", []),
+    }
+    AI_BACKEND.save_profile(student_id, {
+        "name": profile["name"],
+        "language": profile["language"],
+        "stage": profile["stage"],
+        "stream": st.session_state.get("selected_stream") or "",
+        "goal": st.session_state.ai_profile.get("goal", "Explore options"),
+        "interests": ", ".join(profile["interests"]),
+    })
+    with AI_BACKEND._connect() as con:
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS explorer_profiles (
+                student_id TEXT PRIMARY KEY, name TEXT NOT NULL, language TEXT NOT NULL,
+                stage TEXT DEFAULT '', course TEXT DEFAULT '', branch TEXT DEFAULT '',
+                interests TEXT DEFAULT '', career_paths TEXT DEFAULT '', updated_at TEXT NOT NULL
+            )
+        """)
+        con.execute("""
+            INSERT INTO explorer_profiles(student_id,name,language,stage,course,branch,interests,career_paths,updated_at)
+            VALUES(?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(student_id) DO UPDATE SET
+              name=excluded.name, language=excluded.language, stage=excluded.stage,
+              course=excluded.course, branch=excluded.branch, interests=excluded.interests,
+              career_paths=excluded.career_paths, updated_at=excluded.updated_at
+        """, (student_id, name, profile["language"], profile["stage"], profile["course"], profile["branch"],
+              "|".join(profile["interests"]), "|".join(profile["career_paths"]), datetime.utcnow().isoformat()+"Z"))
+
+def load_explorer_profile(student_id):
+    if not student_id:
+        return None
+    with AI_BACKEND._connect() as con:
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS explorer_profiles (
+                student_id TEXT PRIMARY KEY, name TEXT NOT NULL, language TEXT NOT NULL,
+                stage TEXT DEFAULT '', course TEXT DEFAULT '', branch TEXT DEFAULT '',
+                interests TEXT DEFAULT '', career_paths TEXT DEFAULT '', updated_at TEXT NOT NULL
+            )
+        """)
+        row=con.execute("SELECT * FROM explorer_profiles WHERE student_id=?", (student_id.strip().upper(),)).fetchone()
+    if not row:
+        return None
+    d=dict(row)
+    d["interests"]= [x for x in d.get("interests","").split("|") if x]
+    d["career_paths"]= [x for x in d.get("career_paths","").split("|") if x]
+    return d
+
+def interest_options_for_branch(branch_name):
+    d=BRANCHES.get(branch_name, {})
+    text=(branch_name or "")+" "+str(d.get("description",""))+" "+str(d.get("category",""))
+    t=text.lower()
+    opts=[]
+    if any(x in t for x in ["computer","data","ai","cyber","technology","information"]):
+        opts += ["Coding and Technology","Data and Analytics","Artificial Intelligence","Cyber Security","Cloud"]
+    if any(x in t for x in ["electronics","electrical","embedded","avionics","robotics"]):
+        opts += ["Electronics","Robotics","Embedded Systems","Engineering"]
+    if any(x in t for x in ["civil","construction","structural"]): opts += ["Engineering","Construction","Design"]
+    if "mechanical" in t: opts += ["Engineering","Mechanical","Automobile","Robotics"]
+    if any(x in t for x in ["chemical","biotech","food"]): opts += ["Research and Science","Laboratory Work","Engineering"]
+    if any(x in t for x in ["agriculture","environment"]): opts += ["Agriculture","Environment","Research and Science"]
+    if not opts: opts=["Problem Solving","Communication","Research and Science","Business"]
+    return list(dict.fromkeys(opts))
+
+def match_careers_for_selection(stage, course, branch, interests):
+    terms={str(x).strip().lower() for x in interests if str(x).strip()}
+    text=(stage+" "+course+" "+branch).lower()
+    # First use selected interests; when none are selected, use pathway context.
+    categories=set()
+    def add(cat): categories.add(cat)
+    if any(x in terms for x in ["coding and technology","data and analytics","artificial intelligence","cyber security","cloud"]): add("Technology")
+    if "engineering" in terms or any(x in text for x in ["engineering","mechanical","civil","chemical","eee","ece"]): add("Engineering")
+    if any(x in terms for x in ["research and science","laboratory work"]): add("Science")
+    if "agriculture" in terms or "agriculture" in text: add("Agriculture")
+    if "business" in terms or any(x in text for x in ["commerce","business","finance"]): add("Business")
+    if not categories:
+        if any(x in text for x in ["mpc","computer","technology","data","ai","cyber"]): categories.update(["Technology","Engineering"])
+        elif any(x in text for x in ["bipc","biology","health","medical"]): categories.update(["Healthcare","Agriculture"])
+        elif any(x in text for x in ["mec","cec","commerce"]): categories.update(["Business","Finance","Law"])
+        else: categories.update(["Technology","Engineering","Business"])
+
+    catalog = build_backend_career_catalog()
+    out=[]
+    for item in catalog:
+        category=item.get("category","")
+        if category in categories or any(term and term in (item.get("title","")+" "+item.get("what","")).lower() for term in terms):
+            out.append(item)
+    return out[:12]
+
+def render_explorer_profile():
+    render_back("journey","back_profile")
+    st.markdown('<div class="fp-title">👤 Future Explorer Profile</div>', unsafe_allow_html=True)
+    st.markdown('<div class="fp-sub">{ui("choose_stage")}</div>', unsafe_allow_html=True)
+    st.session_state.user_type=st.radio("Who are you?", ["Student","Parent"], index=0 if st.session_state.get("user_type","Student")=="Student" else 1, horizontal=True)
+    if st.session_state.user_type=="Student":
+        name=st.text_input("Student name", value=st.session_state.get("student_name",""), placeholder="Enter your name", key="explorer_profile_name")
+        stage_value=st.selectbox(
+            "Current stage",
+            STAGE_OPTIONS,
+            index=STAGE_OPTIONS.index(st.session_state.get("selected_stage")) if st.session_state.get("selected_stage") in STAGE_OPTIONS else None,
+            placeholder="Select your current stage",
+            key="explorer_profile_stage",
+        )
+        st.session_state.student_name=name
+        st.session_state.selected_stage=stage_value
+        if not st.session_state.get("student_id"):
+            if st.button("🎓 Create Student ID", use_container_width=True, key="explorer_create_id"):
+                if not str(name).strip():
+                    st.error("Please enter your name.")
+                elif not stage_value:
+                    st.error("Please select your current stage.")
+                else:
+                    st.session_state.student_id=_new_student_id()
+                    st.session_state.profile_interests=[]
+                    st.session_state.career_paths=[]
+                    st.session_state.ai_profile["stage"]=stage_value
+                    save_current_profile()
+                    st.success("Your Student ID was created. Keep it to share with a parent.")
+                    st.rerun()
+        if st.session_state.get("student_id"):
+            st.success(f"{ui("student_id")}: {st.session_state.student_id}")
+            if st.session_state.get("selected_branch"):
+                opts=interest_options_for_branch(st.session_state.selected_branch)
+                selected=st.multiselect("What interests you?", opts, default=st.session_state.get("profile_interests",[]), key="explorer_branch_interests")
+                st.session_state.profile_interests=selected
+                if st.button("🔎 Find My Opportunities", use_container_width=True, key="explorer_find_opportunities"):
+                    found=match_careers_for_selection(
+                        st.session_state.get("selected_stage") or "Graduation / Degree Student",
+                        st.session_state.get("selected_course", ""),
+                        st.session_state.get("selected_branch", ""),
+                        selected,
+                    )
+                    st.session_state.career_paths=[x["title"] for x in found]
+                    save_current_profile()
+                    go("opportunities")
+            else:
+                st.info("Your current stage controls the next pathway. Return to Start Your Journey to continue.")
+    else:
+        student_id=st.text_input("Enter Student ID", placeholder="Example: FE-1A2B3C4D").strip().upper()
+        if st.button("🔎 View Child Details", use_container_width=True):
+            profile=load_explorer_profile(student_id)
+            st.session_state.parent_profile=profile
+        profile=st.session_state.get("parent_profile")
+        if profile:
+            st.success(f"Student found: {profile['name']}")
+            st.markdown(f"**Stage:** {profile.get('stage') or 'Not selected'}")
+            st.markdown(f"**Course:** {profile.get('course') or 'Not selected'}")
+            st.markdown(f"**Branch:** {profile.get('branch') or 'Not selected'}")
+            st.markdown(f"**Interests:** {', '.join(profile.get('interests') or []) or 'Not selected'}")
+            st.markdown(f"**Career paths:** {', '.join(profile.get('career_paths') or []) or 'Not selected yet'}")
+        elif student_id:
+            st.error("Student ID not found. Please check the ID.")
+
+def render_opportunities():
+    render_back("explorer_profile","back_opportunities")
+    st.markdown('<div class="fp-title">🎯 My Opportunities</div>', unsafe_allow_html=True)
+    name=st.session_state.get("student_name") or "Student"
+    sid=st.session_state.get("student_id") or "Not created"
+    stage=st.session_state.get("selected_stage", "Class 10")
+    course=st.session_state.get("selected_course") or "Not selected"
+    branch=st.session_state.get("selected_branch") or "Not selected"
+    interests=st.session_state.get("profile_interests", [])
+    st.markdown(f'<div class="fp-note"><b>Student:</b> {name} &nbsp; <b>ID:</b> {sid}<br><b>Path:</b> {stage} → {course} → {branch}<br><b>Interests:</b> {", ".join(interests) or "Not selected"}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="fp-section">🗺️ Your selected path</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-tree"><div class="fp-tree-line">{stage}</div><div class="fp-tree-line">↓ {course}</div><div class="fp-tree-line">↓ {branch}</div><div class="fp-tree-line">↓ Interests</div><div class="fp-tree-line">↓ Skills → Projects → Internship</div><div class="fp-tree-line">↓ Career / Higher Studies</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="fp-section">🚀 Matching Career Paths</div>', unsafe_allow_html=True)
+    careers=match_careers_for_selection(stage, course, branch, interests)
+    if not careers:
+        st.info("No matching career path was found yet. Try another interest.")
+    else:
+        cols=st.columns(3)
+        for i,item in enumerate(careers):
+            with cols[i%3]:
+                st.markdown(f'<div class="fp-card"><div class="fp-chip">{item.get("icon","🧭")} {item.get("category","General")}</div><h3>{item.get("title","Career")}</h3><p>{item.get("what","")}</p></div>', unsafe_allow_html=True)
+                with st.expander("View details"):
+                    st.write("**Eligibility:** "+item.get("eligibility","Check official requirements."))
+                    st.write("**Subjects:** "+", ".join(item.get("subjects",[])))
+                    st.write("**Skills:** "+", ".join(item.get("skills",[])))
+                    st.write("**Jobs:** "+", ".join(item.get("jobs",[])))
+                    st.write("**Higher studies:** "+", ".join(item.get("higherStudies",[])))
+    if st.button("🗺️ View this path as a flow chart", use_container_width=True): go("flowchart")
+
+def build_current_flowchart_text():
+    """Build the user's actual selected FuturePath route without hard-coded step numbers."""
+    name = st.session_state.get("student_name") or "Student"
+    sid = st.session_state.get("student_id") or "Not created"
+    stage = st.session_state.get("selected_stage") or "Current stage not selected"
+    after10 = st.session_state.get("selected_after10")
+    stream = st.session_state.get("selected_stream")
+    course = st.session_state.get("selected_course")
+    branch = st.session_state.get("selected_branch")
+    diploma = st.session_state.get("selected_diploma")
+    iti = st.session_state.get("selected_iti")
+    specialization = st.session_state.get("selected_specialization")
+    wa=st.session_state.get("language")=="WhatsApp"
+    L={
+      "title":"FuturePath — Student Journey Flowchart" if not wa else "FuturePath — Student Journey Flowchart 🧭",
+      "student":"Student" if not wa else "Student",
+      "student_id":"Student ID" if not wa else "Student ID",
+      "stage":"Current Stage" if not wa else "Nee Current Stage",
+      "after10":"After Class 10" if not wa else "10th tarvatha",
+      "inter":"Intermediate Stream" if not wa else "Inter Stream",
+      "subjects":"Subjects" if not wa else "Subjects",
+      "courses":"Courses after Intermediate" if not wa else "Inter tarvatha Courses",
+      "diploma":"Diploma / Polytechnic Course" if not wa else "Diploma / Polytechnic Course",
+      "further":"Career / Further Study" if not wa else "Career / Further Study",
+      "iti":"ITI / Vocational Path" if not wa else "ITI / Vocational Path",
+      "pathway":"Pathway" if not wa else "Pathway",
+      "degree":"Graduation Course" if not wa else "Degree Course",
+      "branch":"Branch" if not wa else "Branch",
+      "description":"Branch Description" if not wa else "Branch gurinchi",
+      "skills":"Required Skills" if not wa else "Kavali skills",
+      "projects":"Projects" if not wa else "Projects",
+      "internships":"Internship Roles" if not wa else "Internship Roles",
+      "jobs":"Job Roles" if not wa else "Job Roles",
+      "mtech":"M.Tech" if not wa else "M.Tech",
+      "ms":"MS" if not wa else "MS",
+      "spec":"Specialization" if not wa else "Specialization",
+      "ai":"FuturePath AI → Ask questions about cost, skills, projects, internships, jobs or higher studies" if not wa else "FuturePath AI → Cost, skills, projects, internships, jobs, higher studies gurinchi adugu",
+    }
+    lines=[L["title"],f'{L["student"]}: {name}',f'{L["student_id"]}: {sid}',f'{L["stage"]}: {stage}']
+    if stage=="Class 10":
+        lines.append("↓")
+        lines.append(f'{L["after10"]}: {after10}' if after10 else ("After Class 10: Choose Intermediate / Diploma / ITI-Vocational" if not wa else "10th tarvatha: Intermediate / Diploma / ITI-Vocational select cheyyi"))
+        if after10=="Intermediate":
+            lines.append("↓")
+            if stream:
+                d=INTERMEDIATE.get(stream,{})
+                lines += [f'{L["inter"]}: {stream}',f'{L["subjects"]}: {", ".join(d.get("subjects",[]))}',f'{L["courses"]}: {", ".join(d.get("courses",[]))}']
+            else:
+                lines.append("Choose an Intermediate stream: MPC / BiPC / MEC / CEC / HEC / Arts / Humanities" if not wa else "Inter stream select cheyyi: MPC / BiPC / MEC / CEC / HEC / Arts / Humanities")
+        elif after10=="Diploma / Polytechnic":
+            lines.append("↓")
+            if diploma:
+                d=DIPLOMAS.get(diploma,{})
+                lines += [f'{L["diploma"]}: {diploma}',f'{L["subjects"]}: {", ".join(d.get("subjects",[]))}',f'{L["further"]}: {", ".join(d.get("careers",[]))}']
+            else:
+                lines.append("Choose a Diploma / Polytechnic course" if not wa else "Diploma / Polytechnic course select cheyyi")
+        elif after10=="ITI / Vocational":
+            lines.append("↓")
+            if iti:
+                d=ITI.get(iti,{})
+                lines += [f'{L["iti"]}: {iti}',f'{L["subjects"]}: {", ".join(iti_subjects(iti))}',f'{L["pathway"]}: {d[0] if isinstance(d,(list,tuple)) and d else "Vocational / practical pathway"}']
+            else:
+                lines.append("Choose an ITI / Vocational trade or creative pathway" if not wa else "ITI / Vocational trade select cheyyi")
+    elif stage=="Intermediate":
+        lines.append("↓")
+        if stream:
+            d=INTERMEDIATE.get(stream,{})
+            lines += [f'{L["inter"]}: {stream}',f'{L["subjects"]}: {", ".join(d.get("subjects",[]))}',f'{L["courses"]}: {", ".join(d.get("courses",[]))}']
+        else:
+            lines.append("After Intermediate: Choose a stream and then a degree / course" if not wa else "Inter tarvatha: stream select chesi degree / course select cheyyi")
+    elif stage=="Diploma / Polytechnic":
+        lines.append("↓")
+        if diploma:
+            d=DIPLOMAS.get(diploma,{})
+            lines += [f'{L["diploma"]}: {diploma}',f'{L["subjects"]}: {", ".join(d.get("subjects",[]))}',f'{L["further"]}: {", ".join(d.get("careers",[]))}']
+        else:
+            lines.append("Choose a Diploma / Polytechnic course" if not wa else "Diploma / Polytechnic course select cheyyi")
+    elif stage=="ITI / Vocational":
+        lines.append("↓")
+        if iti:
+            d=ITI.get(iti,{})
+            lines += [f'{L["iti"]}: {iti}',f'{L["subjects"]}: {", ".join(iti_subjects(iti))}',f'{L["pathway"]}: {d[0] if isinstance(d,(list,tuple)) and d else "Vocational / practical pathway"}']
+        else:
+            lines.append("Choose an ITI / Vocational trade or creative pathway" if not wa else "ITI / Vocational trade select cheyyi")
+    elif stage=="Graduation / Degree Student":
+        lines.append("↓")
+        if branch: lines.append(f'{L["branch"]}: {branch}')
+        elif course: lines.append(f'{L["degree"]}: {course}')
+        else: lines.append("Choose your degree / branch" if not wa else "Degree / branch select cheyyi")
+
+    if course:
+        lines += ["↓",f'Course / Degree: {course}' if not wa else f'Course / Degree: {course}']
+    if branch and branch in BRANCHES:
+        d=BRANCHES[branch]
+        lines += ["↓",f'{L["branch"]}: {branch}',f'{L["description"]}: {d.get("description","")}',f'{L["subjects"]}: {", ".join(d.get("subjects",[]))}',f'{L["skills"]}: {", ".join(d.get("skills",[]))}',f'{L["projects"]}: {", ".join(d.get("projects",[]))}',f'{L["internships"]}: {", ".join(d.get("internships",[]))}',f'{L["jobs"]}: {", ".join(d.get("careers",[]))}',f'{L["mtech"]}: {", ".join(d.get("mtech",[]))}',f'{L["ms"]}: {", ".join(d.get("ms",[]))}']
+    elif specialization:
+        lines += ["↓",f'{L["spec"]}: {specialization}']
+    if course and not branch:
+        profile=course_profile(course)
+        lines += [f'{L["subjects"]}: {", ".join(profile.get("subjects",[]))}',f'{L["skills"]}: {", ".join(profile.get("skills",[]))}',f'{L["projects"]}: {", ".join(profile.get("projects",[]))}',f'{L["internships"]}: {", ".join(profile.get("internships",[]))}',f'{L["jobs"]}: {", ".join(profile.get("careers",[]))}',f'Higher Studies: {", ".join(profile.get("higher",[])) if not wa else "Higher Studies: "+", ".join(profile.get("higher",[]))}']
+    lines += ["↓",L["ai"]]
+    return "\n".join(lines)
+
+
+def render_copy_flowchart_button(flow_text):
+    payload=json.dumps(flow_text,ensure_ascii=False); copy_label=ui("copy"); copied_label=ui("copied")
+    components.html(f"""
+    <div style="font-family:Inter,Arial,sans-serif;background:#102a56;border-radius:12px;padding:12px 14px;color:white;display:flex;align-items:center;justify-content:space-between;gap:12px;box-sizing:border-box;">
+      <div style="font-weight:700;">📋 {copy_label}</div>
+      <button id="fp-copy-btn" style="border:0;border-radius:10px;padding:9px 16px;background:white;color:#102a56;font-weight:800;cursor:pointer;">{copy_label}</button>
+      <span id="fp-copy-status" style="font-size:.9rem;min-width:70px;"></span>
+    </div>
+    <script>
+      const text={payload},btn=document.getElementById('fp-copy-btn'),status=document.getElementById('fp-copy-status');
+      btn.addEventListener('click',async()=>{{try{{if(navigator.clipboard&&window.isSecureContext){{await navigator.clipboard.writeText(text);}}else{{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();document.execCommand('copy');ta.remove();}}status.textContent='{copied_label}';setTimeout(()=>status.textContent='',2000);}}catch(e){{status.textContent='Copy below';}}}});
+    </script>
+    """,height=62,scrolling=False)
+
+
+
+def render_flowchart():
+    render_back("journey","back_flowchart")
+    st.markdown(f'<div class="fp-title">🗺️ {ui("flowchart")}</div>',unsafe_allow_html=True)
+    flow_text=build_current_flowchart_text()
+    render_copy_flowchart_button(flow_text)
+    st.code(flow_text,language="text")
+    c1,c2=st.columns(2)
+    with c1: st.download_button("⬇️ Download Flowchart",data=flow_text,file_name="futurepath_flowchart.txt",mime="text/plain",use_container_width=True,key="download_flowchart")
+    with c2:
+        if st.button("💰 "+ui("calculate"),key="flow_cost_now",use_container_width=True):
+            show_cost_estimate(flow_text,include_optional_tools=True)
+    st.markdown(f'<div class="fp-section">🧭 Visual {ui("flowchart")}</div>',unsafe_allow_html=True)
+    parts=flow_text.split("\n↓\n")
+    for i,line in enumerate(parts):
+        st.markdown(f'<div class="fp-tree"><div class="fp-tree-line">{line.replace(chr(10),"<br>")}</div></div>',unsafe_allow_html=True)
+        if i<len(parts)-1: st.markdown('<div style="text-align:center;font-size:1.4rem;color:#667085">↓</div>',unsafe_allow_html=True)
+
+
+# ------------------------------------------------------------
 # AFTER CLASS 10 — the central hub requested by the user.
 # ------------------------------------------------------------
+def _reset_selected_path():
+    st.session_state.selected_after10=None; st.session_state.selected_stream=None; st.session_state.selected_course=None; st.session_state.selected_branch=None; st.session_state.selected_diploma=None; st.session_state.selected_iti=None; st.session_state.selected_specialization=None; st.session_state.profile_interests=[]; st.session_state.career_paths=[]
+
+def _select_stage(stage):
+    st.session_state.selected_stage=stage; st.session_state.ai_profile["stage"]=stage; _reset_selected_path(); save_current_profile()
+
+def _sync_profile_form_stage(stage):
+    previous=st.session_state.get("_profile_form_stage")
+    if previous!=stage:
+        st.session_state._profile_form_stage=stage
+        st.session_state.selected_after10=None
+        st.session_state.selected_stream=None
+        st.session_state.selected_course=None
+        st.session_state.selected_diploma=None
+        st.session_state.selected_iti=None
+        st.session_state.selected_branch=None
+
+
+def _render_profile_path_choices(stage, prefix="profile"):
+    """Show the next course/path choice on the same Create Profile page."""
+    _sync_profile_form_stage(stage)
+    if stage=="Class 10":
+        after10_options=["Intermediate","Diploma / Polytechnic","ITI / Vocational"]
+        current=st.session_state.get("selected_after10")
+        idx=after10_options.index(current) if current in after10_options else None
+        choice=st.selectbox(ui("after10_option"), after10_options, index=idx, placeholder=ui("after10_option"), key=f"{prefix}_after10")
+        st.session_state.selected_after10=choice
+        if choice=="Intermediate":
+            _render_profile_intermediate_choices(prefix)
+        elif choice=="Diploma / Polytechnic":
+            _render_profile_diploma_choices(prefix)
+        elif choice=="ITI / Vocational":
+            _render_profile_iti_choices(prefix)
+    elif stage=="Intermediate":
+        _render_profile_intermediate_choices(prefix)
+    elif stage=="Diploma / Polytechnic":
+        _render_profile_diploma_choices(prefix)
+    elif stage=="ITI / Vocational":
+        _render_profile_iti_choices(prefix)
+    elif stage=="Graduation / Degree Student":
+        options=list(COURSE_PROFILE_OVERRIDES.keys())
+        current=st.session_state.get("selected_course")
+        idx=options.index(current) if current in options else None
+        course=st.selectbox(ui("degree_course"), options, index=idx, placeholder=ui("choose_course"), key=f"{prefix}_degree")
+        st.session_state.selected_course=course
+
+
+def _render_profile_intermediate_choices(prefix):
+    selected_stream=st.session_state.get("selected_stream")
+    streams=list(INTERMEDIATE.keys())
+    # Once a stream is selected, do not keep showing all other streams.
+    # The profile page should narrow progressively: Stream → Course → Branch.
+    if selected_stream not in INTERMEDIATE:
+        current=selected_stream
+        idx=streams.index(current) if current in streams else None
+        stream=st.selectbox(ui("inter_stream"), streams, index=idx, placeholder=ui("choose_stream"), key=f"{prefix}_stream")
+        st.session_state.selected_stream=stream
+        selected_stream=stream
+    else:
+        st.markdown(f'<div class="fp-section">📘 {selected_stream}</div>',unsafe_allow_html=True)
+
+    if selected_stream in INTERMEDIATE:
+        courses=INTERMEDIATE[selected_stream]["courses"]
+        current_course=st.session_state.get("selected_course")
+        cidx=courses.index(current_course) if current_course in courses else None
+        course=st.selectbox(ui("choose_course"), courses, index=cidx, placeholder=ui("choose_course"), key=f"{prefix}_course_{selected_stream}")
+        st.session_state.selected_course=course
+        d=INTERMEDIATE[selected_stream]
+        st.markdown(f'<div class="fp-note"><b>{selected_stream}</b><br><b>{ui("subjects")}:</b> {" • ".join(d["subjects"])}</div>',unsafe_allow_html=True)
+
+        # Profile page stops at Course / Degree.
+        # When B.Tech / B.E. is selected, the actual branch selection happens
+        # on the dedicated B.Tech Engineering Branches page after profile save.
+        if course == "B.Tech / B.E.":
+            st.markdown('<div class="fp-note">✅ B.Tech / B.E. selected. After you update the student details, FuturePath will open the full B.Tech Branches page.</div>',unsafe_allow_html=True)
+
+
+def _render_profile_diploma_choices(prefix):
+    options=list(DIPLOMAS.keys())
+    current=st.session_state.get("selected_diploma")
+    idx=options.index(current) if current in options else None
+    diploma=st.selectbox(ui("diploma_course"), options, index=idx, placeholder=ui("diploma_course"), key=f"{prefix}_diploma")
+    st.session_state.selected_diploma=diploma
+    if diploma in DIPLOMAS:
+        d=DIPLOMAS[diploma]
+        st.markdown(f'<div class="fp-note"><b>{diploma}</b><br><b>{ui("subjects")}:</b> {" • ".join(d["subjects"])}</div>',unsafe_allow_html=True)
+
+
+def _render_profile_iti_choices(prefix):
+    options=list(ITI.keys())
+    current=st.session_state.get("selected_iti")
+    idx=options.index(current) if current in options else None
+    trade=st.selectbox(ui("iti_trade"), options, index=idx, placeholder=ui("iti_trade"), key=f"{prefix}_iti")
+    st.session_state.selected_iti=trade
+    if trade in ITI:
+        st.markdown(f'<div class="fp-note"><b>{trade}</b><br><b>{ui("subjects")}:</b> {" • ".join(iti_subjects(trade))}</div>',unsafe_allow_html=True)
+
+
 def render_journey():
     render_back("home","back_journey")
-    st.markdown('<div class="fp-title">🚀 After Class 10 — Explore Your Complete Path</div>',unsafe_allow_html=True)
-    st.markdown('<div class="fp-sub">Choose Intermediate, Polytechnic / Diploma or ITI / Vocational. Then open a stream and follow the clickable course → degree → branch → career path.</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-title">🧭 {LANG.get(st.session_state.get("language","English"),LANG["English"])["journey"]}</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-sub">{ui("choose_stage")}. {ui("select_course_hint")}</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-section">👤 {ui("create_profile")}</div>',unsafe_allow_html=True)
+    if not st.session_state.get("student_id"):
+        with st.container(border=True):
+            name=st.text_input(ui("student_name"),value=st.session_state.get("student_name",""),placeholder=ui("student_name"),key="journey_student_name")
+            current_stage=st.selectbox(ui("current_stage"),STAGE_OPTIONS,index=STAGE_OPTIONS.index(st.session_state.get("selected_stage")) if st.session_state.get("selected_stage") in STAGE_OPTIONS else None,placeholder=ui("choose_stage"),key="journey_current_stage")
+            if current_stage:
+                _render_profile_path_choices(current_stage, prefix="create_profile")
+            st.caption(ui("select_course_hint"))
+            if st.button("🎓 "+ui("create_profile"),key="create_profile_journey",use_container_width=True):
+                clean_name=str(name).strip()
+                if not clean_name: st.error(ui("choose_name"))
+                elif not current_stage: st.error(ui("choose_stage"))
+                elif current_stage=="Intermediate" and not st.session_state.get("selected_stream"): st.error(ui("choose_stream"))
+                else:
+                    st.session_state.student_name=clean_name
+                    st.session_state.student_id=_new_student_id()
+                    st.session_state.selected_stage=current_stage
+                    st.session_state.ai_profile["stage"]=current_stage
+                    save_current_profile()
+                    # B.Tech profiles go straight to the dedicated Engineering Branches page.
+                    # The profile page never asks for CSE/CSD/etc.
+                    if st.session_state.get("selected_course") == "B.Tech / B.E.":
+                        st.session_state.page="branches"
+                    else:
+                        st.session_state.page="journey"
+                    st.rerun()
+        return
+    with st.container(border=True):
+        st.markdown(f'<div class="fp-note"><b>{ui("student_name")}:</b> {st.session_state.get("student_name") or "Student"}<br><b>{ui("student_id")}:</b> {st.session_state.get("student_id")}</div>',unsafe_allow_html=True)
+        editable_stage=st.selectbox(ui("current_stage"),STAGE_OPTIONS,index=STAGE_OPTIONS.index(st.session_state.get("selected_stage")) if st.session_state.get("selected_stage") in STAGE_OPTIONS else None,placeholder=ui("choose_stage"),key="journey_edit_current_stage")
+        if st.button("✅ "+ui("update_stage"),key="journey_update_stage",use_container_width=True):
+            if editable_stage:
+                _select_stage(editable_stage)
+                if editable_stage == "Intermediate" and st.session_state.get("selected_course") == "B.Tech / B.E.":
+                    st.session_state.page="branches"
+                else:
+                    st.session_state.page="journey"
+                st.rerun()
+            else:
+                st.error(ui("choose_stage"))
+    stage=st.session_state.get("selected_stage")
+    if not stage: st.info(ui("choose_stage")); return
+    if stage=="Class 10":
+        st.markdown(f'<div class="fp-section">🎯 {ui("after10")}</div>',unsafe_allow_html=True)
+        options=[("Intermediate","📚", "MPC, BiPC, MEC, CEC, HEC / Humanities"),("Diploma / Polytechnic","🛠️", "Technical diploma pathways"),("ITI / Vocational","🔧", "Trade and vocational pathways")]
+        cols=st.columns(3)
+        for i,(label,icon,desc) in enumerate(options):
+            with cols[i]:
+                st.markdown(f'<div class="fp-card"><div class="fp-chip">{icon} {label}</div><h3>{label}</h3><p>{desc}</p></div>',unsafe_allow_html=True)
+                if st.button(label+" →",key=f"stage10_path_{i}",use_container_width=True):
+                    st.session_state.selected_after10=label; st.session_state.selected_stream=None; st.session_state.selected_course=None; st.session_state.selected_diploma=None; st.session_state.selected_iti=None; st.session_state.selected_branch=None; save_current_profile(); st.rerun()
+        choice=st.session_state.get("selected_after10")
+        if choice=="Intermediate": _render_inline_intermediate_choices()
+        elif choice=="Diploma / Polytechnic": _render_inline_diploma_choices()
+        elif choice=="ITI / Vocational": _render_inline_iti_choices()
+        return
+    if stage=="Intermediate": _render_inline_intermediate_choices(); return
+    if stage=="Diploma / Polytechnic": _render_inline_diploma_choices(); return
+    if stage=="ITI / Vocational": _render_inline_iti_choices(); return
+    st.markdown(f'<div class="fp-section">🎓 {ui("choose_course")}</div>',unsafe_allow_html=True)
+    for i,c in enumerate(list(COURSE_PROFILE_OVERRIDES.keys())):
+        with st.container(border=True):
+            st.markdown(f'<h3>{c}</h3><p>{ui("select_course_hint")}</p>',unsafe_allow_html=True)
+            if st.button(c+" →",key=f"grad_course_{i}",use_container_width=True): select_course(c)
 
-    st.markdown('<div class="fp-section">📚 Intermediate Streams</div>',unsafe_allow_html=True)
-    cols=st.columns(3)
-    for i,(name,d) in enumerate(INTERMEDIATE.items()):
-        with cols[i%3]:
-            st.markdown(f'<div class="fp-card"><div class="fp-chip">{d["icon"]} {name}</div><h3>{name}</h3><p><b>Subjects:</b> {" • ".join(d["subjects"])}</p><p><b>Explore:</b> degrees, branches, skills, projects, internships and careers.</p></div>',unsafe_allow_html=True)
-            if st.button(f"Open {name} →",key="journey_stream_"+str(i),use_container_width=True):
-                select_stream(name)
+def _render_inline_intermediate_choices():
+    stream=st.session_state.get("selected_stream")
+    # Before choosing a stream, show all Intermediate streams.
+    if stream not in INTERMEDIATE:
+        cols=st.columns(2)
+        for i,(name,d) in enumerate(INTERMEDIATE.items()):
+            with cols[i%2]:
+                st.markdown(f'<div class="fp-card"><h3>{d["icon"]} {name}</h3><p><b>{ui("subjects")}:</b> {" • ".join(d["subjects"])}</p></div>',unsafe_allow_html=True)
+                if st.button(name+" →",key=f"inline_stream_{i}",use_container_width=True):
+                    st.session_state.selected_stream=name
+                    st.session_state.selected_course=None
+                    st.session_state.selected_branch=None
+                    save_current_profile()
+                    st.rerun()
+        return
 
-    st.markdown('<div class="fp-section">🛠️ Polytechnic / Diploma</div>',unsafe_allow_html=True)
-    st.caption("Common diploma courses with clear subjects, skills, job roles and further study.")
+    d=INTERMEDIATE[stream]
+    st.markdown(f'<div class="fp-section">📘 {stream}</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-note"><b>{stream}</b> — {ui("select_stream_hint")}</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-section">🎓 {ui("choose_course")}: {stream}</div>',unsafe_allow_html=True)
+    course=st.session_state.get("selected_course")
+
+    # Before a course is selected, show only this stream's courses.
+    if course not in d["courses"]:
+        cols=st.columns(2)
+        for i,c in enumerate(d["courses"]):
+            with cols[i%2]:
+                st.markdown(f'<div class="fp-card"><h3>{c}</h3><p>{ui("select_course_hint")}</p></div>',unsafe_allow_html=True)
+                if st.button(ui("open")+" "+c+" →",key=f"inline_course_{stream}_{i}",use_container_width=True):
+                    if c == "B.Tech / B.E.":
+                        st.session_state.selected_course=c
+                        st.session_state.selected_branch=None
+                        save_current_profile()
+                        st.rerun()
+                    else:
+                        select_course(c)
+        return
+
+    # Once B.Tech is selected, show branches only. Do not render MPC/BiPC/etc.
+    if course == "B.Tech / B.E.":
+        st.markdown('<div class="fp-section">🎓 B.Tech Branches</div>',unsafe_allow_html=True)
+        st.markdown(f'<div class="fp-sub">{ui("choose_branch")}. {ui("other_hidden")}</div>',unsafe_allow_html=True)
+        cols=st.columns(3)
+        for i,name in enumerate(BRANCHES):
+            bd=BRANCHES[name]
+            with cols[i%3]:
+                st.markdown(f'<div class="fp-card"><div class="fp-chip">{bd["icon"]} {bd["category"]}</div><h3>{name}</h3><p>{bd["description"]}</p></div>',unsafe_allow_html=True)
+                if st.button(ui("open")+" "+name+" →",key=f"inline_btech_branch_{i}",use_container_width=True):
+                    st.session_state.selected_branch=name
+                    select_branch(name)
+        return
+
+    # Other Intermediate courses continue to their normal detail page.
+    st.markdown(f'<div class="fp-note">✅ {course} selected</div>',unsafe_allow_html=True)
+    if st.button(ui("continue")+" "+course+" →", key=f"inline_continue_{stream}", use_container_width=True):
+        select_course(course)
+
+def _render_inline_diploma_choices():
     cols=st.columns(3)
     for i,name in enumerate(DIPLOMAS):
+        d=DIPLOMAS[name]
         with cols[i%3]:
-            st.markdown(f'<div class="fp-card"><h3>🎓 {name}</h3><p>{DIPLOMAS[name]["description"]}</p></div>',unsafe_allow_html=True)
-            if st.button("Open diploma →",key="journey_dip_"+str(i),use_container_width=True): select_diploma(name)
+            st.markdown(f'<div class="fp-card"><h3>{name}</h3><p><b>{ui("subjects")}:</b> {" • ".join(d["subjects"][:5])}</p><p>{d["description"]}</p></div>',unsafe_allow_html=True)
+            if st.button(ui("open")+" "+name+" →",key=f"inline_diploma_{i}",use_container_width=True): select_diploma(name)
 
-    st.markdown('<div class="fp-section">🔧 ITI / Vocational</div>',unsafe_allow_html=True)
+def _render_inline_iti_choices():
     cols=st.columns(3)
     for i,name in enumerate(ITI):
         with cols[i%3]:
-            st.markdown(f'<div class="fp-card"><h3>🔧 {name}</h3><p>{ITI[name][0]}</p></div>',unsafe_allow_html=True)
-            if st.button("Open pathway →",key="journey_iti_"+str(i),use_container_width=True): select_iti(name)
+            st.markdown(f'<div class="fp-card"><h3>🔧 {name}</h3><p>{ITI[name][0]}</p><p><b>{ui("subjects")}:</b> {" • ".join(iti_subjects(name)[:5])}</p></div>',unsafe_allow_html=True)
+            if st.button(ui("open")+" "+name+" →",key=f"inline_iti_{i}",use_container_width=True): select_iti(name)
+
+
+
+def render_after10_option():
+    """Show the subjects and next clickable pathways for one Class-10 option."""
+    choice = st.session_state.get("selected_after10")
+    render_back("journey", "back_after10_option")
+    if choice not in {"Intermediate", "Diploma / Polytechnic", "ITI / Vocational"}:
+        st.error("Please choose an After Class 10 option first.")
+        if st.button("← Back to Start Your Journey", key="missing_after10", use_container_width=True):
+            back("journey")
+        return
+
+    st.markdown(f'<div class="fp-title">{choice}</div>', unsafe_allow_html=True)
+
+    if choice == "Intermediate":
+        st.markdown('<div class="fp-sub">Choose a stream. Each stream shows its subjects and then clickable degree / branch pathways.</div>', unsafe_allow_html=True)
+        for i, (name, d) in enumerate(INTERMEDIATE.items()):
+            with st.container(border=True):
+                c1, c2 = st.columns([1, 3])
+                with c1:
+                    st.markdown(f'<div style="font-size:3rem;text-align:center">{d["icon"]}</div>', unsafe_allow_html=True)
+                with c2:
+                    st.markdown(f'<h3 style="margin:0;color:#102a56">{name}</h3>', unsafe_allow_html=True)
+                    st.markdown(f'**Subjects:** {" • ".join(d["subjects"])}')
+                    st.markdown(f'**Next courses:** {" • ".join(d["courses"][:8])}')
+                    if st.button(f"Open {name} subjects & pathways →", key=f"after10_inter_{i}", use_container_width=True):
+                        select_stream(name)
+
+    elif choice == "Diploma / Polytechnic":
+        st.markdown('<div class="fp-sub">Choose a diploma. You will see subjects, skills, careers and relevant B.Tech / degree pathways.</div>', unsafe_allow_html=True)
+        cols = st.columns(3)
+        for i, name in enumerate(DIPLOMAS):
+            d = DIPLOMAS[name]
+            with cols[i % 3]:
+                st.markdown(
+                    f'<div class="fp-card"><div class="fp-chip">🎓 DIPLOMA</div><h3>{name}</h3>'
+                    f'<p><b>Subjects:</b> {" • ".join(d["subjects"][:5])}</p><p>{d["description"]}</p></div>',
+                    unsafe_allow_html=True
+                )
+                if st.button("Open diploma pathway →", key=f"after10_dip_{i}", use_container_width=True):
+                    select_diploma(name)
+
+    else:
+        st.markdown('<div class="fp-sub">Choose an ITI / Vocational trade or creative pathway. The trade itself acts as the practical specialization.</div>', unsafe_allow_html=True)
+        cols = st.columns(3)
+        for i, name in enumerate(ITI):
+            subjects = iti_subjects(name)
+            with cols[i % 3]:
+                st.markdown(
+                    f'<div class="fp-card"><div class="fp-chip">🔧 TRADE / VOCATIONAL</div><h3>{name}</h3>'
+                    f'<p>{ITI[name][0]}</p><p><b>Subjects:</b> {" • ".join(subjects[:4])}</p></div>',
+                    unsafe_allow_html=True
+                )
+                if st.button("Open trade pathway →", key=f"after10_iti_{i}", use_container_width=True):
+                    select_iti(name)
 
 # ------------------------------------------------------------
 # STREAM PAGE — subjects + clickable next degrees.
@@ -1097,16 +2101,107 @@ def render_course_detail():
 # ------------------------------------------------------------
 def render_branches():
     render_back("stream","back_branches")
-    st.markdown('<div class="fp-title">🎓 B.Tech / B.E. — Engineering Branches</div>',unsafe_allow_html=True)
-    st.markdown('<div class="fp-sub">Choose any branch. Each branch opens a complete B.Tech → Skills → Projects → Internship → Job → M.Tech / MS pathway.</div>',unsafe_allow_html=True)
-    q=st.text_input("🔎 Search engineering branch",placeholder="CSE, Data Science, ECE, Civil...")
+    st.markdown(f'<div class="fp-title">🎓 {ui("btech_branches")}</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-sub">{ui("choose_branch")}. B.Tech → Skills → Projects → Internship → Job → M.Tech / MS.</div>',unsafe_allow_html=True)
+    q=st.text_input("🔎 "+ui("choose_branch"),placeholder="CSE, Data Science, ECE, Civil...")
     items=[x for x in BRANCHES if not q or q.lower() in x.lower() or q.lower() in BRANCHES[x]["description"].lower()]
     cols=st.columns(3)
     for i,name in enumerate(items):
         d=BRANCHES[name]
         with cols[i%3]:
             st.markdown(f'<div class="fp-card"><div class="fp-chip">{d["icon"]} {d["category"]}</div><h3>{name}</h3><p>{d["description"]}</p></div>',unsafe_allow_html=True)
-            if st.button("Open complete branch →",key="branch_"+str(i),use_container_width=True): select_branch(name)
+            if st.button(ui("open")+" "+name+" →",key="branch_"+str(i),use_container_width=True): select_branch(name)
+
+# ------------------------------------------------------------
+# HIGHER-STUDY DETAIL GENERATOR
+# ------------------------------------------------------------
+def higher_study_profile(program, mode, branch):
+    """Create a structured postgraduate profile for a selected M.Tech/MS option."""
+    p = str(program or "").strip()
+    m = str(mode or "M.Tech").strip()
+    b = str(branch or "").strip()
+    pl = p.lower()
+    bd = BRANCHES.get(b, {})
+
+    study = []
+    skills = []
+    projects = []
+    roles = []
+
+    # Base material from the selected B.Tech branch.
+    base_subjects = list(bd.get("subjects", []))[:5]
+    base_skills = list(bd.get("skills", []))[:5]
+    base_projects = list(bd.get("projects", []))[:4]
+    base_roles = list(bd.get("careers", []))[:4]
+
+    if any(k in pl for k in ["data science", "analytics", "big data", "business analytics", "statistics"]):
+        study = ["Advanced statistics and probability", "Data mining and analytics", "Machine learning", "Data visualization / analytics", "Research methods and applied projects"]
+        skills = ["Python", "SQL", "Statistics", "Pandas / NumPy", "Machine Learning", "Data Storytelling"]
+        projects = ["Predictive analytics system", "Large-scale data pipeline", "Student / placement analytics", "Business or public-data research project"]
+        roles = ["Data Scientist", "Data Analyst", "ML Engineer", "Analytics Engineer"]
+    elif any(k in pl for k in ["artificial intelligence", "ai & ml", "machine learning", "robotics", "intelligent systems", "computer vision", "nlp", "natural language"]):
+        study = ["Machine learning algorithms", "Deep learning", "Model evaluation", "AI systems / intelligent applications", "Research or thesis project"]
+        skills = ["Python", "Scikit-learn", "TensorFlow / PyTorch", "Model Evaluation", "Deep Learning", "Research Skills"]
+        projects = ["Prediction / classification system", "Computer vision application", "RAG or intelligent assistant", "Research prototype / thesis"]
+        roles = ["AI Engineer", "ML Engineer", "Data Scientist", "Research Engineer"]
+    elif any(k in pl for k in ["cyber", "information security", "network security", "digital forensics", "cyber defense"]):
+        study = ["Network and system security", "Cryptography", "Secure software / infrastructure", "Digital forensics / incident response", "Security research and practical labs"]
+        skills = ["Linux", "Networking", "Python", "Security Tools", "Threat Analysis", "Incident Response"]
+        projects = ["Security monitoring platform", "Forensics investigation lab", "Secure application audit", "Threat detection prototype"]
+        roles = ["Security Engineer", "SOC Analyst", "Digital Forensics Analyst", "Security Researcher"]
+    elif any(k in pl for k in ["vlsi", "microelectronics", "electronics", "telecommunications", "communication systems", "signal processing", "embedded"]):
+        study = ["Advanced electronics / digital systems", "Embedded or communication systems", "Signal processing", "Hardware design / verification", "Research and project work"]
+        skills = ["Embedded C/C++", "HDL / Digital Design", "MATLAB", "Microcontrollers", "Circuit Analysis", "Debugging"]
+        projects = ["Embedded prototype", "FPGA / digital design project", "Communication system study", "IoT / edge-device prototype"]
+        roles = ["Embedded Engineer", "VLSI Engineer", "Electronics Engineer", "Systems Engineer"]
+    elif any(k in pl for k in ["structural", "geotechnical", "transportation", "environmental engineering", "water resources", "construction"]):
+        study = ["Advanced engineering analysis", "Design and modelling", "Numerical / simulation methods", "Domain-specific design standards", "Research / thesis project"]
+        skills = ["Engineering Analysis", "CAD / Simulation", "Technical Documentation", "Numerical Methods", "Project Planning"]
+        projects = ["Structural/design analysis", "Infrastructure modelling", "Sustainable engineering study", "Simulation-based thesis"]
+        roles = ["Design Engineer", "Structural / Domain Engineer", "Project Engineer", "Research Engineer"]
+    elif any(k in pl for k in ["mechanical", "machine design", "thermal", "manufacturing", "cad/cam", "industrial", "production", "automotive", "automobile"]):
+        study = ["Advanced mechanical engineering", "Design / manufacturing systems", "Simulation and modelling", "Automation / optimization", "Research or capstone project"]
+        skills = ["CAD/CAE", "Design Analysis", "Manufacturing", "Simulation", "Optimization", "Technical Problem Solving"]
+        projects = ["Advanced CAD/CAE study", "Manufacturing optimization", "Robotics / automation prototype", "Thermal / design simulation"]
+        roles = ["Design Engineer", "Manufacturing Engineer", "R&D Engineer", "Automation / Robotics Engineer"]
+    elif any(k in pl for k in ["power systems", "power electronics", "control systems", "renewable energy", "electrical engineering", "high voltage"]):
+        study = ["Advanced power / electrical systems", "Control and modelling", "Power electronics or renewable systems", "Simulation and analysis", "Research / project work"]
+        skills = ["MATLAB/Simulink", "Circuit Analysis", "Power Systems", "Control Systems", "Simulation", "Technical Analysis"]
+        projects = ["Smart energy system", "Power-system simulation", "Renewable energy analysis", "Motor / control prototype"]
+        roles = ["Power Engineer", "Control Engineer", "Electrical Engineer", "Energy Systems Engineer"]
+    else:
+        study = base_subjects or [f"Advanced topics in {b}", "Specialized theory and practical work", "Research methods", "Project / thesis work"]
+        skills = base_skills or ["Advanced technical analysis", "Problem Solving", "Research", "Project Management"]
+        projects = base_projects or [f"Advanced {b} project", "Applied research project", "Industry-oriented capstone"]
+        roles = base_roles or [f"Advanced {b} roles", "R&D Engineer", "Technical Specialist"]
+
+    if m.lower().startswith("m.tech"):
+        overview = f"{p} is a postgraduate engineering specialization after B.Tech, focused on advanced technical study, applied projects and specialization in the selected area."
+        duration = CORPORATION_FEES["M.Tech"]["duration"]
+        format_note = "Typical structure: advanced coursework + laboratory/project work + major project or thesis. Exact curriculum varies by university."
+        next_steps = ["Advanced technical roles", "R&D / engineering projects", "Teaching / research pathways where eligible", "PhD / doctoral study"]
+        eligibility = "A relevant B.Tech/B.E. background is commonly expected; exact eligibility depends on the university and admission route."
+    else:
+        overview = f"{p} is an advanced postgraduate degree focused on {p[3:].strip() if p.lower().startswith('ms ') else p}, with coursework, projects and often research-oriented work."
+        duration = CORPORATION_FEES["MS India"]["duration"]
+        format_note = "Structure, duration and thesis requirements vary significantly by university and country."
+        next_steps = ["Advanced industry roles", "Research / thesis work", "Specialized technical careers", "PhD / doctoral study"]
+        eligibility = "A relevant bachelor’s degree is commonly expected; exact prerequisites, exams and country-specific rules vary."
+
+    # Preserve a few branch-specific signals so the page clearly connects back to B.Tech.
+    if base_subjects:
+        study = list(dict.fromkeys(study + base_subjects[:3]))[:8]
+    if base_skills:
+        skills = list(dict.fromkeys(skills + base_skills[:3]))[:8]
+    if base_roles:
+        roles = list(dict.fromkeys(roles + base_roles[:2]))[:6]
+
+    return {
+        "program": p, "mode": m, "branch": b, "overview": overview,
+        "duration": duration, "format_note": format_note, "eligibility": eligibility,
+        "study": study, "skills": skills, "projects": projects,
+        "roles": roles, "next_steps": next_steps,
+    }
 
 # ------------------------------------------------------------
 # ENGINEERING BRANCH DETAIL
@@ -1123,8 +2218,11 @@ def render_branch():
     st.markdown(f'<div class="fp-title">{d["icon"]} {name}</div>',unsafe_allow_html=True)
     st.markdown(f'<div class="fp-sub">{d["description"]}</div>',unsafe_allow_html=True)
 
+    origin = st.session_state.get("selected_stream") or st.session_state.get("selected_diploma") or st.session_state.get("selected_iti") or "MPC"
+    stage = st.session_state.get("selected_stage", "Intermediate")
+    course_label = "B.Tech / B.E." if stage == "Intermediate" else ("B.Tech / B.E. lateral entry" if stage == "Diploma" else "Advanced trade / related degree")
     st.markdown(f'<div class="fp-section">🌳 {T["tree"]}</div>',unsafe_allow_html=True)
-    st.markdown(f'<div class="fp-tree"><div class="fp-tree-line">Class 10 → MPC</div><div class="fp-tree-line">↓ {name} — B.Tech / B.E.</div><div class="fp-tree-line">↓ Skills</div><div class="fp-tree-line">↓ Projects</div><div class="fp-tree-line">↓ Internship Roles</div><div class="fp-tree-line">↓ Job Roles</div><div class="fp-tree-line">↓ M.Tech / MS</div></div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-tree"><div class="fp-tree-line">Class 10 → {origin}</div><div class="fp-tree-line">↓ {name} — {course_label}</div><div class="fp-tree-line">↓ Skills</div><div class="fp-tree-line">↓ Projects</div><div class="fp-tree-line">↓ Internship Roles</div><div class="fp-tree-line">↓ Job Roles</div><div class="fp-tree-line">↓ M.Tech / MS</div></div>',unsafe_allow_html=True)
 
     sections=[(T["subjects"],"subjects","📚"),(T["skills"],"skills","🧠"),(T["projects"],"projects","🛠️"),(T["intern"],"internships","💼"),(T["careers"],"careers","🚀"),(T["mtech"],"mtech","🎓"),(T["ms"],"ms","🌍")]
     for title,key,icon in sections:
@@ -1134,36 +2232,672 @@ def render_branch():
         for i,x in enumerate(data):
             with cols[i%3]: st.markdown(f'<div class="fp-card"><h3>{x}</h3></div>',unsafe_allow_html=True)
 
+    st.markdown('<div class="fp-section">🎓 Higher Studies Explorer</div>', unsafe_allow_html=True)
+    st.markdown('<div class="fp-sub">Click any M.Tech or MS option to see what you study, skills to build, project ideas, career roles and further opportunities.</div>', unsafe_allow_html=True)
+    h1,h2=st.columns(2)
+    with h1:
+        st.markdown(f'<div class="fp-card"><div class="fp-chip">M.TECH</div><h3>🎓 After {name}</h3><p>Common / relevant M.Tech directions</p></div>',unsafe_allow_html=True)
+        for i,item in enumerate(d.get("mtech",[])):
+            if st.button(f"🎓 {item}", key=f"mtech_open_{name}_{i}", use_container_width=True):
+                select_higher_program(item, "M.Tech", name)
+    with h2:
+        st.markdown(f'<div class="fp-card"><div class="fp-chip">MS</div><h3>🌍 After {name}</h3><p>Common / relevant MS directions</p></div>',unsafe_allow_html=True)
+        for i,item in enumerate(d.get("ms",[])):
+            if st.button(f"🌍 {item}", key=f"ms_open_{name}_{i}", use_container_width=True):
+                select_higher_program(item, "MS", name)
+
+    st.markdown(f'<div class="fp-section">❤️ {ui("explore_interests")}</div>',unsafe_allow_html=True)
+    opts=interest_options_for_branch(name)
+    selected=st.multiselect(ui("select_interests"), opts, default=st.session_state.get("profile_interests",[]), key="branch_interests")
+    st.session_state.profile_interests=selected
+    if st.button("🎯 "+ui("show_opportunities"), key="show_opportunities_branch", use_container_width=True):
+        if not st.session_state.get("student_id"):
+            st.session_state.student_id=_new_student_id()
+            if not st.session_state.get("student_name"):
+                st.session_state.student_name="Future Explorer Student"
+        found=match_careers_for_selection("Intermediate", "B.Tech / B.E.", name, selected)
+        st.session_state.career_paths=[x["title"] for x in found]
+        save_current_profile()
+        go("opportunities")
+
+# ------------------------------------------------------------
+# HIGHER-STUDY DETAIL PAGE
+# ------------------------------------------------------------
+def render_higher_detail():
+    mode = st.session_state.get("selected_higher_mode") or "M.Tech"
+    program = st.session_state.get("selected_higher_program")
+    branch = st.session_state.get("selected_higher_branch") or st.session_state.get("selected_branch") or ""
+    render_back("branch", "back_higher_detail")
+    if not program:
+        st.warning("Please select an M.Tech or MS option from the branch page.")
+        return
+
+    d = higher_study_profile(program, mode, branch)
+    st.markdown(f'<div class="fp-title">{("🎓" if mode == "M.Tech" else "🌍")} {d["program"]}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-sub">After B.Tech / B.E. in {d["branch"]} · {d["mode"]}</div>', unsafe_allow_html=True)
+
+    c1,c2,c3 = st.columns(3)
+    with c1:
+        st.metric("Path", d["mode"])
+    with c2:
+        st.metric("Typical duration", d["duration"])
+    with c3:
+        st.metric("Base branch", d["branch"])
+
+    st.markdown('<div class="fp-section">📘 What is this program?</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-card"><p>{d["overview"]}</p><p><b>Study format:</b> {d["format_note"]}</p></div>', unsafe_allow_html=True)
+
+    sections = [
+        ("📚 What you study", d["study"]),
+        ("🧠 Skills to build", d["skills"]),
+        ("🛠️ Example projects / research work", d["projects"]),
+        ("💼 Career roles", d["roles"]),
+        ("🚀 What you can do next", d["next_steps"]),
+    ]
+    for title, items in sections:
+        st.markdown(f'<div class="fp-section">{title}</div>', unsafe_allow_html=True)
+        cols = st.columns(3)
+        for i,item in enumerate(items):
+            with cols[i % 3]:
+                st.markdown(f'<div class="fp-card"><h3>{item}</h3></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="fp-section">✅ Eligibility note</div>', unsafe_allow_html=True)
+    st.info(d["eligibility"])
+
+    st.markdown('<div class="fp-section">🌳 Your progression</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-tree"><div class="fp-tree-line">B.Tech / B.E. → {branch}</div><div class="fp-tree-line">↓ {program}</div><div class="fp-tree-line">↓ Advanced study + projects / thesis</div><div class="fp-tree-line">↓ Specialized career / research</div><div class="fp-tree-line">↓ PhD / further specialization (optional)</div></div>', unsafe_allow_html=True)
+
+    if st.button("💰 See planning cost", key="higher_cost_" + str(program), use_container_width=True):
+        cost_label = "M.Tech" if mode == "M.Tech" else "MS India"
+        cost = CORPORATION_FEES.get(cost_label)
+        if cost:
+            lo = sum(cost[k][0] for k in ("tuition","exam_lab","books"))
+            hi = sum(cost[k][1] for k in ("tuition","exam_lab","books"))
+            st.markdown('<div class="fp-section">💰 Approximate planning cost</div>', unsafe_allow_html=True)
+            a,b,c = st.columns(3)
+            with a: st.metric("Tuition", f"{_money(cost['tuition'][0])} – {_money(cost['tuition'][1])}")
+            with b: st.metric("Academic / lab", f"{_money(cost['exam_lab'][0])} – {_money(cost['exam_lab'][1])}")
+            with c: st.metric("Books / materials", f"{_money(cost['books'][0])} – {_money(cost['books'][1])}")
+            st.success(f"Approximate total planning range: {_money(lo)} – {_money(hi)}")
+            st.caption("These are planning ranges from the current FuturePath fee profile, not an official university fee quotation.")
+
+    if st.button("⬅ Back to branch", key="higher_back_branch", use_container_width=True):
+        back("branch")
+
 # ------------------------------------------------------------
 # DIPLOMA / ITI details
 # ------------------------------------------------------------
+def diploma_branch_options(name):
+    """Relevant clickable B.Tech / degree progression branches for common diplomas."""
+    n = str(name).lower()
+    if "computer" in n or "cse" in n:
+        return ["CSE", "Information Technology", "Cyber Security", "Data Science"]
+    if "information technology" in n:
+        return ["Information Technology", "CSE", "Cyber Security", "Data Science"]
+    if "ai" in n or "data science" in n:
+        return ["Data Science", "CSD", "CSM", "Artificial Intelligence & ML"]
+    if "electronics" in n or "ece" in n:
+        return ["ECE", "EEE", "Internet of Things", "Avionics"]
+    if "electrical" in n or "eee" in n:
+        return ["EEE", "ECE", "Energy Engineering", "Industrial Engineering"]
+    if "civil" in n:
+        return ["Civil", "Environmental Engineering"]
+    if "mechanical" in n:
+        return ["Mechanical", "Automobile", "Robotics & Automation", "Mechatronics"]
+    if "automobile" in n:
+        return ["Automobile", "Mechanical", "Industrial Engineering"]
+    if "chemical" in n:
+        return ["Chemical", "Environmental Engineering", "Materials Engineering"]
+    if "agricultural" in n:
+        return ["Agricultural Engineering"]
+    if "biotechnology" in n:
+        return ["Biotechnology", "Biomedical Engineering"]
+    if "food" in n:
+        return ["Food Technology", "Biotechnology"]
+    if "textile" in n:
+        return ["Textile Technology", "Materials Engineering"]
+    if "mining" in n:
+        return ["Mining Engineering", "Materials Engineering"]
+    if "metallurgy" in n or "materials" in n:
+        return ["Materials Engineering", "Industrial Engineering"]
+    if "mechatronics" in n:
+        return ["Robotics & Automation", "Mechanical", "Industrial Engineering"]
+    if "instrument" in n or "control" in n:
+        return ["ECE", "EEE", "Industrial Engineering"]
+    if "biomedical" in n:
+        return ["Biomedical Engineering", "Biotechnology"]
+    return ["CSE", "Information Technology", "Industrial Engineering"]
+
+
+def iti_subjects(name):
+    """Common subject areas for the selected ITI/vocational trade."""
+    n = str(name).lower()
+    if "electric" in n:
+        return ["Trade Theory", "Electrical Wiring", "Circuit Fundamentals", "Workshop Safety", "Practical Training"]
+    if "fitter" in n:
+        return ["Trade Theory", "Fitting Practice", "Engineering Drawing", "Workshop Safety", "Practical Training"]
+    if "welder" in n:
+        return ["Trade Theory", "Welding Practice", "Fabrication", "Workshop Safety", "Practical Training"]
+    if "copa" in n or "computer" in n:
+        return ["Computer Fundamentals", "Office Applications", "Programming Basics", "Internet / Networking", "Practical Training"]
+    if "electronics" in n:
+        return ["Electronic Components", "Circuits", "Testing & Measurement", "Repair Practice", "Workshop Safety"]
+    if "mechanic" in n or "automobile" in n:
+        return ["Vehicle Systems", "Servicing", "Diagnostics", "Workshop Safety", "Practical Training"]
+    if "refrigeration" in n or "ac" in n:
+        return ["Refrigeration Basics", "Air Conditioning", "Electrical Controls", "Servicing", "Safety"]
+    if any(x in n for x in ["singing", "dancing", "acting", "drawing", "photography", "fashion", "beauty", "culinary", "content"]):
+        return ["Practical Training", "Creative Techniques", "Portfolio Building", "Communication", "Professional Practice"]
+    return ["Trade Theory", "Practical Training", "Tools & Equipment", "Safety", "Professional Practice"]
+
+
 def render_diploma():
-    name=st.session_state.selected_diploma; d=DIPLOMAS[name]
-    render_back("journey","back_diploma")
-    st.markdown(f'<div class="fp-title">🎓 {name}</div>',unsafe_allow_html=True)
-    st.markdown(f'<div class="fp-sub">{d["description"]}</div>',unsafe_allow_html=True)
-    mapping=[("Subjects","subjects","📚"),("Skills","skills","🧠"),("Job / Career Roles","careers","🚀"),("Further Study","further","🎓")]
-    for title,key,icon in mapping:
-        st.markdown(f'<div class="fp-section">{icon} {title}</div>',unsafe_allow_html=True)
-        cols=st.columns(3)
-        for i,x in enumerate(d[key]):
-            with cols[i%3]: st.markdown(f'<div class="fp-card"><h3>{x}</h3></div>',unsafe_allow_html=True)
-    st.markdown('<div class="fp-section">🌳 Graduation / Progression Tree</div>',unsafe_allow_html=True)
-    st.markdown('<div class="fp-tree"><div class="fp-tree-line">Class 10 → Diploma</div><div class="fp-tree-line">↓ Skills + Practical Training</div><div class="fp-tree-line">↓ Apprenticeship / Internship</div><div class="fp-tree-line">↓ Job or B.Tech lateral entry / higher study</div></div>',unsafe_allow_html=True)
+    name = st.session_state.get("selected_diploma")
+    if not name or name not in DIPLOMAS:
+        render_back("after10_option", "back_missing_diploma")
+        st.error("No diploma was selected.")
+        return
+    d = DIPLOMAS[name]
+    render_back("after10_option", "back_diploma")
+    st.markdown(f'<div class="fp-title">🎓 {name}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-sub">{d["description"]}</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="fp-section">📚 Subjects</div>', unsafe_allow_html=True)
+    cols = st.columns(3)
+    for i, x in enumerate(d["subjects"]):
+        with cols[i % 3]: st.markdown(f'<div class="fp-card"><h3>{x}</h3></div>', unsafe_allow_html=True)
+
+    for title, key, icon in [("Skills", "skills", "🧠"), ("Job / Career Roles", "careers", "🚀"), ("Further Study", "further", "🎓")]:
+        st.markdown(f'<div class="fp-section">{icon} {title}</div>', unsafe_allow_html=True)
+        cols = st.columns(3)
+        for i, x in enumerate(d[key]):
+            with cols[i % 3]: st.markdown(f'<div class="fp-card"><h3>{x}</h3></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="fp-section">🌿 Relevant Branches / Degree Pathways</div>', unsafe_allow_html=True)
+    options = diploma_branch_options(name)
+    cols = st.columns(3)
+    for i, b in enumerate(options):
+        with cols[i % 3]:
+            available = b in BRANCHES
+            st.markdown(
+                f'<div class="fp-card"><h3>🔹 {b}</h3><p>{"Detailed branch page available" if available else "University-specific / related pathway"}</p></div>',
+                unsafe_allow_html=True
+            )
+            if available and st.button("Open branch details →", key=f"dip_branch_{i}_{name.replace(' ','_').replace('/','_')}", use_container_width=True):
+                st.session_state.selected_after10 = "Diploma / Polytechnic"
+                select_branch(b)
+
+    st.markdown('<div class="fp-section">🌳 Progression Flow Chart</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="fp-tree"><div class="fp-tree-line">Class 10 → {name}</div>'
+        '<div class="fp-tree-line">↓ Subjects + Practical Training</div>'
+        '<div class="fp-tree-line">↓ Apprenticeship / Internship</div>'
+        '<div class="fp-tree-line">↓ Job OR B.Tech lateral entry / related degree</div>'
+        '<div class="fp-tree-line">↓ Advanced specialization / Higher Studies</div></div>',
+        unsafe_allow_html=True
+    )
+
 
 def render_iti_detail():
-    name=st.session_state.selected_iti; desc,career=ITI[name]
-    render_back("journey","back_iti")
-    st.markdown(f'<div class="fp-title">🔧 {name}</div>',unsafe_allow_html=True)
-    st.markdown(f'<div class="fp-sub">{desc}</div>',unsafe_allow_html=True)
-    st.markdown('<div class="fp-section">🚀 Typical Progression</div>',unsafe_allow_html=True)
-    st.markdown('<div class="fp-tree"><div class="fp-tree-line">Class 10 → ITI / Vocational Training</div><div class="fp-tree-line">↓ Practical Skills</div><div class="fp-tree-line">↓ Apprenticeship / Portfolio</div><div class="fp-tree-line">↓ Job / Further Training</div></div>',unsafe_allow_html=True)
-    st.markdown('<div class="fp-section">💼 Possible Roles</div>',unsafe_allow_html=True)
-    st.markdown(f'<div class="fp-card"><h3>{career}</h3></div>',unsafe_allow_html=True)
+    name = st.session_state.get("selected_iti")
+    if not name or name not in ITI:
+        render_back("after10_option", "back_missing_iti")
+        st.error("No ITI / vocational pathway was selected.")
+        return
+    desc, career = ITI[name]
+    render_back("after10_option", "back_iti")
+    st.markdown(f'<div class="fp-title">🔧 {name}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-sub">{desc}</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="fp-section">📚 Subjects / Practical Areas</div>', unsafe_allow_html=True)
+    cols = st.columns(3)
+    for i, x in enumerate(iti_subjects(name)):
+        with cols[i % 3]: st.markdown(f'<div class="fp-card"><h3>{x}</h3></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="fp-section">🧠 Skills to Build</div>', unsafe_allow_html=True)
+    skill_map = ["Practical Problem Solving", "Tool / Equipment Usage", "Safety Practices", "Communication", "Work Discipline"]
+    cols = st.columns(3)
+    for i, x in enumerate(skill_map):
+        with cols[i % 3]: st.markdown(f'<div class="fp-card"><h3>{x}</h3></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="fp-section">💼 Possible Roles</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-card"><h3>{career}</h3></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="fp-section">🎓 Further Pathways</div>', unsafe_allow_html=True)
+    further = ["Apprenticeship", "Advanced trade / vocational training", "Diploma / Polytechnic where eligible", "Self-employment / small business", "Industry technician roles"]
+    cols = st.columns(3)
+    for i, x in enumerate(further):
+        with cols[i % 3]: st.markdown(f'<div class="fp-card"><h3>{x}</h3></div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="fp-section">🌳 Progression Flow Chart</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="fp-tree"><div class="fp-tree-line">Class 10 → ITI / Vocational → {name}</div>'
+        '<div class="fp-tree-line">↓ Subjects + Practical Skills</div>'
+        '<div class="fp-tree-line">↓ Apprenticeship / Portfolio</div>'
+        '<div class="fp-tree-line">↓ Job / Self-employment / Further Training</div></div>',
+        unsafe_allow_html=True
+    )
 
 # ------------------------------------------------------------
-# ADVANCED FUTUREPATH AI ASSISTANT
+# API-compatible career catalog (merged from the uploaded Future Explorer backend).
 # ------------------------------------------------------------
+def build_backend_career_catalog():
+    items=[]
+    general=[
+        ("Software Developer","Technology","💻","Build websites, mobile apps and software applications.",["Coding and Technology","Problem Solving"]),
+        ("Prompt Engineer","Technology","🧠","Design and test prompts and AI workflows.",["AI","Writing","Problem Solving"]),
+        ("Data Analyst","Technology","📊","Analyze data and turn it into useful insights.",["Data and Analytics","Mathematics"]),
+        ("AI / ML Engineer","Technology","🤖","Build systems that learn from data.",["AI","Data and Analytics","Mathematics"]),
+        ("Cyber Security Analyst","Technology","🔐","Help protect systems, networks and digital information.",["Cyber Security","Coding and Technology"]),
+        ("Cloud Engineer","Technology","☁️","Manage cloud infrastructure and applications.",["Cloud","Coding and Technology"]),
+        ("Civil Engineer","Engineering","🏗️","Design and manage infrastructure and construction work.",["Engineering"]),
+        ("Mechanical Engineer","Engineering","⚙️","Work with machines, manufacturing and mechanical systems.",["Engineering","Mechanical"]),
+        ("Healthcare Professional","Healthcare","🩺","Support healthcare services and patient care.",["Healthcare","Biology"]),
+        ("Pharmacist","Healthcare","💊","Work with medicines and pharmaceutical services.",["Healthcare","Biology"]),
+        ("Business Manager","Business","💼","Manage business activities, teams and projects.",["Business","Leadership"]),
+        ("Finance Professional","Finance","💰","Work with accounts, banking and financial analysis.",["Finance","Accounting"]),
+        ("Lawyer","Law","⚖️","Study law and provide legal support.",["Law","Communication"]),
+        ("Agriculture Professional","Agriculture","🌱","Work in agriculture, agri-tech and rural development.",["Agriculture","Research and Science"]),
+        ("Graphic Designer","Creative","🎨","Create visual designs and digital content.",["Creative","Design"]),
+        ("Sports Professional","Sports","🏆","Build a career through sport, coaching or fitness.",["Sports","Fitness"]),
+        ("Pilot / Aviation Professional","Aviation","✈️","Work in aviation and airport-related roles.",["Aviation","Mathematics"]),
+        ("Teacher / Lecturer","Education","👩‍🏫","Teach students and support learning.",["Teaching","Communication"]),
+        ("Government Services","Public Service","🏛️","Explore government departments and public-service pathways.",["Government","Communication"]),
+        ("Vocational Technician","Vocational","🔧","Build practical technical skills for industry.",["Technical Skills","Practical Work"]),
+        ("Tourism & Hospitality","Hospitality","🏨","Work in hotels, travel and hospitality.",["Tourism","Hospitality","Communication"]),
+        ("Defence Services Professional","Defence","🪖","Explore defence services and leadership pathways.",["Defence","Fitness","Leadership"]),
+    ]
+    for title,cat,icon,what,interests in general:
+        items.append({"title":title,"icon":icon,"category":cat,"what":what,"description":what,"eligibility":"Check the official course and recruitment requirements.","subjects":[],"skills":interests,"jobs":[title],"higherStudies":[],"tools":[],"interests":interests})
+    for branch,d in BRANCHES.items():
+        for job in d.get("careers",[]):
+            items.append({"title":job,"icon":d.get("icon","🧭"),"category":"Technology" if any(x in d.get("category","").lower() for x in ["computer","data","security","technology","ai"]) else "Engineering","what":d.get("description",f"Career pathway related to {branch}."),"description":d.get("description",f"Career pathway related to {branch}."),"eligibility":"Check the relevant degree and recruitment requirements.","subjects":d.get("subjects",[]),"skills":d.get("skills",[]),"jobs":[job],"higherStudies":d.get("mtech",[])+d.get("ms",[]),"tools":[],"interests":[d.get("category","") , branch]})
+    # Deduplicate by title while keeping rich branch data when available.
+    merged={}
+    for item in items: merged[item["title"].lower()]=item
+    return list(merged.values())
+
+def remote_ai_answer(message, language, student_name):
+    url=os.getenv("FUTUREPATH_BACKEND_URL","").strip().rstrip("/")
+    if not url:
+        return None
+    try:
+        r=requests.post(url+"/ask",json={"question":message,"language":language,"student_name":student_name},timeout=3)
+        if r.ok:
+            data=r.json()
+            return (data.get("answer") or data.get("reply") or data.get("message"))
+    except Exception:
+        return None
+    return None
+
+# ------------------------------------------------------------
+# FUTUREPATH BACKEND SERVICE LAYER
+# ------------------------------------------------------------
+# Streamlit is the frontend. This service layer is the Python backend:
+# - SQLite persistence for student profiles and AI conversations
+# - FuturePath catalog search/retrieval
+# - personalized roadmap generation
+# - AI response generation grounded in FuturePath data
+# This keeps the project fully Python and deployable as one Streamlit app.
+# ------------------------------------------------------------
+import sqlite3
+from pathlib import Path
+from datetime import datetime
+
+BACKEND_DB = Path("futurepath_backend.db")
+
+class FuturePathBackend:
+    def __init__(self, db_path=BACKEND_DB):
+        self.db_path = str(db_path)
+        self.init_db()
+
+    def _connect(self):
+        con = sqlite3.connect(self.db_path, check_same_thread=False)
+        con.row_factory = sqlite3.Row
+        return con
+
+    def init_db(self):
+        with self._connect() as con:
+            con.executescript("""
+            CREATE TABLE IF NOT EXISTS student_profiles (
+                student_key TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                language TEXT NOT NULL,
+                stage TEXT DEFAULT '',
+                stream TEXT DEFAULT '',
+                goal TEXT DEFAULT '',
+                interests TEXT DEFAULT '',
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS ai_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_key TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_ai_messages_student
+            ON ai_messages(student_key, id);
+            """)
+
+    def save_profile(self, student_key, profile):
+        now = datetime.utcnow().isoformat() + "Z"
+        with self._connect() as con:
+            con.execute("""
+                INSERT INTO student_profiles
+                (student_key,name,language,stage,stream,goal,interests,updated_at)
+                VALUES (?,?,?,?,?,?,?,?)
+                ON CONFLICT(student_key) DO UPDATE SET
+                    name=excluded.name,
+                    language=excluded.language,
+                    stage=excluded.stage,
+                    stream=excluded.stream,
+                    goal=excluded.goal,
+                    interests=excluded.interests,
+                    updated_at=excluded.updated_at
+            """, (
+                student_key,
+                str(profile.get('name','Student')),
+                str(profile.get('language','English')),
+                str(profile.get('stage','')),
+                str(profile.get('stream','')),
+                str(profile.get('goal','')),
+                str(profile.get('interests','')),
+                now,
+            ))
+
+    def load_profile(self, student_key):
+        with self._connect() as con:
+            row = con.execute(
+                "SELECT * FROM student_profiles WHERE student_key=?",
+                (student_key,)
+            ).fetchone()
+        if not row:
+            return None
+        return dict(row)
+
+    def save_message(self, student_key, role, content):
+        with self._connect() as con:
+            con.execute(
+                "INSERT INTO ai_messages(student_key,role,content,created_at) VALUES(?,?,?,?)",
+                (student_key, role, content, datetime.utcnow().isoformat() + "Z")
+            )
+            # Keep only the latest 40 messages for a student.
+            con.execute("""
+                DELETE FROM ai_messages
+                WHERE student_key=? AND id NOT IN (
+                    SELECT id FROM ai_messages
+                    WHERE student_key=? ORDER BY id DESC LIMIT 40
+                )
+            """, (student_key, student_key))
+
+    def load_messages(self, student_key, limit=40):
+        with self._connect() as con:
+            rows = con.execute(
+                "SELECT role,content FROM ai_messages WHERE student_key=? ORDER BY id ASC LIMIT ?",
+                (student_key, int(limit))
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def catalog_summary(self):
+        return {
+            "intermediate_streams": list(INTERMEDIATE.keys()),
+            "engineering_branches": list(BRANCHES.keys()),
+            "diplomas": list(DIPLOMAS.keys()),
+            "iti_paths": list(ITI.keys()),
+        }
+
+    def search(self, query, limit=5):
+        return find_matches(str(query or ''), limit=limit)
+
+    def generate_answer(self, message, profile):
+        """Backend AI: catalog retrieval + profile-aware response rules."""
+        q = str(message or '').strip()
+        if not q:
+            return "Please type a question."
+
+        ql = q.lower()
+        stage = profile.get('stage','Class 10')
+        stream = profile.get('stream','Not selected')
+        goal = profile.get('goal','Explore options')
+        interests = profile.get('interests','').strip() or 'not specified'
+
+        # Personalized roadmap
+        if any(x in ql for x in ["build my roadmap", "my roadmap", "personalized roadmap", "roadmap for me"]):
+            next_step = "Choose a course / degree"
+            if stage == "Class 10":
+                next_step = "Choose Intermediate / Diploma / ITI"
+            elif stage == "Intermediate" and stream != "Not selected":
+                next_step = f"Choose a degree/course after {stream}"
+            elif stage == "B.Tech / Degree Student":
+                next_step = "Choose a specialization/branch and build a job-ready skill plan"
+            return (
+                "### 🧭 Your Personalized FuturePath\n\n"
+                f"**Stage:** {stage}\n\n"
+                f"**Stream / area:** {stream}\n\n"
+                f"**Goal:** {goal}\n\n"
+                f"**Interests:** {interests}\n\n"
+                f"**Next step:** {next_step}\n\n"
+                "**Roadmap:** Education → Specialization / Branch → Skills → Projects → "
+                "Internship / Apprenticeship → Job or Higher Studies.\n\n"
+                "Use the clickable Journey pages to explore each step."
+            )
+
+        # Stream-specific guidance
+        for sname, sdata in INTERMEDIATE.items():
+            if sname.lower() in ql and any(k in ql for k in ["after", "what", "course", "roadmap", "subjects", "do"]):
+                return (
+                    f"### 📚 {sname} pathway\n\n"
+                    f"**Subjects:** {', '.join(sdata['subjects'])}\n\n"
+                    f"**Next courses:** {', '.join(sdata['courses'][:10])}\n\n"
+                    f"**Skills:** {', '.join(sdata['skills'][:8])}\n\n"
+                    f"**Internship ideas:** {', '.join(sdata['internships'][:6])}\n\n"
+                    f"**Career areas:** {', '.join(sdata['careers'][:8])}\n\n"
+                    "Then open a specific course to explore its branches/specializations."
+                )
+
+        # Internship guidance
+        if "intern" in ql:
+            matches = self.search(q, 3)
+            if matches:
+                name, data = matches[0][1], matches[0][2]
+                roles = data.get("internships", []) if isinstance(data, dict) else []
+                projects = data.get("projects", []) if isinstance(data, dict) else []
+                skills = data.get("skills", []) if isinstance(data, dict) else []
+                return (
+                    f"### 💼 Internship roadmap — {name}\n\n"
+                    f"**Required skills:** {', '.join(skills[:8])}\n\n"
+                    f"**Example projects:** {', '.join(projects[:6])}\n\n"
+                    f"**Typical internship roles:** {', '.join(roles[:8])}\n\n"
+                    "Prepare a one-page resume and portfolio/GitHub with evidence of your work."
+                )
+            return (
+                "### 💼 Internship plan\n\n"
+                "1. Learn the core skills for your target area.\n"
+                "2. Build 2–3 practical projects.\n"
+                "3. Keep the projects in GitHub/portfolio.\n"
+                "4. Prepare a focused one-page resume.\n"
+                "5. Apply to relevant internships/apprenticeships."
+            )
+
+        # Higher studies
+        if "m.tech" in ql or "mtech" in ql:
+            for name, d in BRANCHES.items():
+                if name.lower() in ql:
+                    return (
+                        f"### 🎓 M.Tech after {name}\n\n" +
+                        "\n".join(f"- {x}" for x in d["mtech"]) +
+                        "\n\nExact program names and eligibility vary by university."
+                    )
+            return "Open an engineering branch and view its M.Tech section for relevant postgraduate pathways."
+
+        if ql.startswith("ms") or " ms " in f" {ql} ":
+            for name, d in BRANCHES.items():
+                if name.lower() in ql:
+                    return (
+                        f"### 🌍 MS after {name}\n\n" +
+                        "\n".join(f"- {x}" for x in d["ms"]) +
+                        "\n\nExact program names and eligibility vary by university and country."
+                    )
+            return "Open an engineering branch and view its MS section for relevant postgraduate pathways."
+
+        # Projects / skills
+        if "project" in ql:
+            matches = self.search(q, 3)
+            if matches:
+                name, data = matches[0][1], matches[0][2]
+                projects = data.get("projects", []) if isinstance(data, dict) else []
+                return f"### 🛠️ Project ideas for {name}\n\n" + "\n".join(f"- {x}" for x in projects[:10])
+            return "Tell me the course, branch or career and I’ll retrieve matching FuturePath project ideas."
+
+        if "skill" in ql:
+            matches = self.search(q, 3)
+            if matches:
+                blocks=[]
+                for _, name, data in matches:
+                    skills=data.get("skills",[]) if isinstance(data,dict) else []
+                    blocks.append(f"### 🧠 {name}\n" + ", ".join(skills[:10]))
+                return "\n\n".join(blocks)
+            return "Tell me the target course, branch or job role and I’ll retrieve the required skills."
+
+        # Branch/course lookup
+        matches = self.search(q, 5)
+        if matches:
+            _, name, data = matches[0]
+            if name in BRANCHES:
+                d=BRANCHES[name]
+                return (
+                    f"### {d['icon']} {name}\n\n{d['description']}\n\n"
+                    f"**Subjects:** {', '.join(d['subjects'])}\n\n"
+                    f"**Required skills:** {', '.join(d['skills'])}\n\n"
+                    f"**Projects:** {', '.join(d['projects'])}\n\n"
+                    f"**Internship roles:** {', '.join(d['internships'])}\n\n"
+                    f"**Job roles:** {', '.join(d['careers'])}\n\n"
+                    f"**M.Tech:** {', '.join(d['mtech'])}\n\n"
+                    f"**MS:** {', '.join(d['ms'])}"
+                )
+            return (
+                f"### 📘 {name}\n\n"
+                f"{data.get('description','')}\n\n"
+                "Open it from **Start Your Journey** to see the next degree/branch pathway."
+            )
+
+        return (
+            "### 🤖 FuturePath AI\n\n"
+            f"I can guide you using your profile (**{stage} · {stream} · {goal}**) and the FuturePath catalog.\n\n"
+            "Try:\n"
+            "- What can I do after MPC?\n"
+            "- Show me CSE subjects and job roles\n"
+            "- Projects for Data Science\n"
+            "- How can I prepare for internships?\n"
+            "- M.Tech after ECE\n"
+            "- MS after Mechanical\n"
+            "- Build my roadmap"
+        )
+
+# ------------------------------------------------------------
+# FLOWCHART COST ESTIMATOR
+# ------------------------------------------------------------
+# These are editable planning ranges for the prototype, not official fees.
+# They are intentionally shown as ranges because fees vary by institution,
+# state, scholarship, hostel choice, and public/private category.
+COST_ESTIMATES={label:(d["tuition"][0]+d["exam_lab"][0]+d["books"][0],d["tuition"][1]+d["exam_lab"][1]+d["books"][1],d["duration"]) for label,d in CORPORATION_FEES.items()}
+
+def _money(value):
+    value=int(value)
+    if value>=10000000: return f"₹{value/10000000:.2f} Cr"
+    if value>=100000: return f"₹{value/100000:.2f} L"
+    return f"₹{value:,}"
+
+def _detect_cost_path(text):
+    q=str(text or "").lower(); found=[]
+    def add(label):
+        if label not in found: found.append(label)
+    if any(x in q for x in ["intermediate","mpc","bipc","mec","cec","hec","humanities","arts"]): add("Intermediate")
+    elif any(x in q for x in ["diploma","polytechnic"]): add("Diploma / Polytechnic")
+    elif "iti" in q or "vocational" in q: add("ITI / Vocational")
+    if any(x in q for x in ["b.tech","btech","b.e.","b.e ","engineering branch","lateral entry"]): add("B.Tech / B.E.")
+    elif "bca" in q: add("BCA")
+    elif "b.sc" in q: add("B.Sc")
+    elif "b.com" in q: add("B.Com")
+    elif "bba" in q: add("BBA")
+    elif "mbbs" in q: add("MBBS")
+    elif "bds" in q: add("BDS")
+    elif "b.pharm" in q or "bpharm" in q: add("B.Pharm")
+    elif "nursing" in q: add("Nursing")
+    elif "agriculture" in q: add("Agriculture")
+    elif " ba " in f" {q} " or q.startswith("ba " ): add("BA")
+    return found,("m.tech" in q or "mtech" in q),("ms after" in q or " ms " in f" {q} " or "master of science" in q),any(x in q for x in ["ms abroad","ms in usa","ms in uk","ms in canada","ms in australia","overseas ms"])
+
+def estimate_flowchart_cost(text,include_optional_tools=False):
+    path,has_mtech,has_ms,has_ms_abroad=_detect_cost_path(text)
+    if not path and not(has_mtech or has_ms): return None
+    rows=[]; low=high=0
+    for label in path:
+        d=CORPORATION_FEES.get(label)
+        if not d: continue
+        tlo,thi=d["tuition"]; elo,ehi=d["exam_lab"]; blo,bhi=d["books"]
+        lo=tlo+elo+blo; hi=thi+ehi+bhi; rows.append((label,d["duration"],tlo,thi,elo,ehi,blo,bhi,lo,hi)); low+=lo; high+=hi
+    lines=[f"### 💰 {ui('cost')}","",f"**{ui('fee_note')}**","",f"#### 📚 {ui('full_details')}",""]
+    chart=[]
+    for label,dur,tlo,thi,elo,ehi,blo,bhi,lo,hi in rows:
+        lines += [f"**{label}** · {ui('duration')}: {dur}",f"- {ui('tuition')}: {_money(tlo)} – {_money(thi)}",f"- {ui('exam_lab')}: {_money(elo)} – {_money(ehi)}",f"- {ui('books')}: {_money(blo)} – {_money(bhi)}",f"- {ui('stage_subtotal')}: **{_money(lo)} – {_money(hi)}**",""]
+        chart.append((label,(lo+hi)/2))
+    if include_optional_tools and rows: lines += [f"**{ui('optional_setup')}:** ₹40,000 – ₹1,20,000",""]
+    lines += [f"### 🧾 {ui('approx_total')}: **{_money(low)} – {_money(high)}**"]
+    if include_optional_tools and rows: lines += [f"{ui('with_optional')}: **{_money(low+40000)} – {_money(high+120000)}**"]
+    higher=[]
+    if has_mtech: higher.append("M.Tech")
+    if has_ms: higher.append("MS Abroad" if has_ms_abroad else "MS India")
+    if higher:
+        lines += ["",f"#### 🎓 {ui('higher_alternatives')}",""]
+        for h in higher:
+            d=CORPORATION_FEES[h]; tlo,thi=d["tuition"]; elo,ehi=d["exam_lab"]; blo,bhi=d["books"]; lo=tlo+elo+blo; hi=thi+ehi+bhi
+            lines.append(f"- {h}: adds **{_money(lo)} – {_money(hi)}** → total with this alternative: **{_money(low+lo)} – {_money(high+hi)}**")
+        lines.append(f"- {ui('higher_note')}")
+    lines += ["",f"**{ui('not_included')}:** {ui('not_included_detail')}"]
+    return "\n".join(lines)
+
+
+def show_cost_estimate(source_text, include_optional_tools=True):
+    # Render full configurable-fee details plus a visual approximate total.
+    report=estimate_flowchart_cost(source_text, include_optional_tools=include_optional_tools)
+    if not report:
+        st.info(ui("cost_no_source"))
+        return
+    path,_,_,_= _detect_cost_path(source_text)
+    rows=[]; total_low=0; total_high=0
+    for label in path:
+        d=CORPORATION_FEES.get(label)
+        if not d: continue
+        lo=sum(d[k][0] for k in ("tuition","exam_lab","books"))
+        hi=sum(d[k][1] for k in ("tuition","exam_lab","books"))
+        total_low += lo; total_high += hi
+        rows.append((label,d,lo,hi))
+    st.markdown(f'<div class="fp-section">💰 {ui("visual_cost")}</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-note"><b>{ui("fee_profile")}</b><br>{ui("fee_note")}</div>',unsafe_allow_html=True)
+    c1,c2,c3=st.columns(3)
+    with c1: st.metric(ui("approx_total"),f"{_money(total_low)} – {_money(total_high)}")
+    with c2: st.metric(ui("midpoint"),_money(int((total_low+total_high)/2)) if rows else "—")
+    with c3: st.metric(ui("path_stages"),str(len(rows)))
+    if rows:
+        table=f"""<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.92rem"><tr><th style="padding:9px;text-align:left;border-bottom:2px solid #d8e1ef">{ui("stage")}</th><th style="padding:9px;border-bottom:2px solid #d8e1ef">{ui("duration")}</th><th style="padding:9px;border-bottom:2px solid #d8e1ef">{ui("tuition")}</th><th style="padding:9px;border-bottom:2px solid #d8e1ef">{ui("exam_lab")}</th><th style="padding:9px;border-bottom:2px solid #d8e1ef">{ui("books")}</th><th style="padding:9px;border-bottom:2px solid #d8e1ef">{ui("subtotal")}</th></tr>"""
+        for label,d,lo,hi in rows:
+            table+=f'<tr><td style="padding:8px;border-bottom:1px solid #e7ecf3"><b>{label}</b></td><td style="padding:8px;border-bottom:1px solid #e7ecf3">{d["duration"]}</td><td style="padding:8px;border-bottom:1px solid #e7ecf3">{_money(d["tuition"][0])} – {_money(d["tuition"][1])}</td><td style="padding:8px;border-bottom:1px solid #e7ecf3">{_money(d["exam_lab"][0])} – {_money(d["exam_lab"][1])}</td><td style="padding:8px;border-bottom:1px solid #e7ecf3">{_money(d["books"][0])} – {_money(d["books"][1])}</td><td style="padding:8px;border-bottom:1px solid #e7ecf3"><b>{_money(lo)} – {_money(hi)}</b></td></tr>'
+        table+='</table></div>'
+        st.markdown(table,unsafe_allow_html=True)
+        st.caption(ui("visual_cost"))
+        max_mid=max([((lo+hi)/2) for _,_,lo,hi in rows] or [1])
+        bars=[]
+        for label,_,lo,hi in rows:
+            mid=(lo+hi)/2
+            pct=max(6,min(100,(mid/max_mid)*100))
+            bars.append(f'<div style="margin:10px 0"><div style="display:flex;justify-content:space-between;gap:10px;font-size:.9rem"><b>{label}</b><span>{_money(mid)}</span></div><div style="height:12px;background:#e8edf5;border-radius:999px;overflow:hidden"><div style="height:12px;width:{pct:.1f}%;background:linear-gradient(90deg,#4f46e5,#06b6d4);border-radius:999px"></div></div></div>')
+        st.markdown("<div style='padding:8px 0'>"+"".join(bars)+"</div>",unsafe_allow_html=True)
+    st.markdown(report)
+
+
+
 def build_ai_context():
     pieces=[]
     for n,d in BRANCHES.items(): pieces.append((n, d["description"], d))
@@ -1184,156 +2918,372 @@ def find_matches(query, limit=5):
     scored.sort(key=lambda x:(-x[0],x[1]))
     return scored[:limit]
 
+AI_BACKEND = FuturePathBackend()
+
+def _student_key():
+    return "futurepath-session-" + str(st.session_state.get("backend_student_key"))
+
+def is_futurepath_flowchart_text(text):
+    q=str(text or "").lower()
+    return len(q)>80 and any(x in q for x in ["futurepath — student journey flowchart","futurepath - student journey flowchart","current stage:"]) and any(x in q for x in ["student id:","subjects:","job roles:"])
+
+
+def _whatsapp_ai_fallback(message):
+    """Natural Roman-Telugu + English offline replies for WhatsApp mode."""
+    q = str(message or "").strip().lower()
+    if any(x in q for x in ["hi", "hello", "hey", "namaste", "hii"]):
+        return "Hi 👋 FuturePath AI ikkada. Nee education/career gurinchi edaina adugu — course, branch, skills, projects, internship, jobs, higher studies, cost anni guide chestha."
+    if "cost" in q or "fee" in q or "fees" in q or "how much" in q or "budget" in q:
+        return "Cost kavala? Nee selected path batti tuition + exam/lab + books complete breakup, approx total mariyu visual cost kuda chupistha. Flowchart paste chesthe exact path estimate chestha."
+    if "mpc" in q:
+        return "MPC select chesthe Inter subjects + stream details chusi, tarvatha B.Tech/B.E., B.Sc lanti courses choose cheyyachu. B.Tech select chesthe direct ga CSE, CSD, CSM, AI & ML, Data Science, Cyber Security, IT, ECE, EEE laanti branches chupistha."
+    if "b.tech" in q or "btech" in q:
+        return "B.Tech select chesaka profile page lo branch ask cheyyanu. Student details update chesina ventane B.Tech Engineering Branches page open avutundi — CSE, CSD, CSM, AI & ML, Data Science, Cyber Security, IT, ECE, EEE etc."
+    if "cse" in q:
+        return "CSE lo Programming, DSA, DBMS, OS, Networks lantivi subjects. Skills: Python/Java/C++, SQL, Git. Projects, internships, jobs, M.Tech & MS pathways kuda FuturePath lo detailed ga untayi."
+    if "intern" in q:
+        return "Internship kosam relevant skills learn cheyyi, 2–3 practical projects build cheyyi, GitHub/portfolio maintain cheyyi, simple resume ready chesi apply cheyyi."
+    if "project" in q:
+        return "Project ideas kavala? Selected branch/course batti FuturePath lo beginner nunchi advanced varaku project ideas, required skills mariyu internship use-cases chupistha."
+    if "skill" in q:
+        return "Skills kosam selected branch/course lo required technical skills, tools, communication skills mariyu next focus areas chudachu."
+    if "m.tech" in q or "mtech" in q:
+        return "M.Tech options branch batti untayi. FuturePath branch detail lo common relevant M.Tech pathways chupistha. University eligibility & exact program name official site lo verify cheyyi."
+    if q.startswith("ms") or " ms " in f" {q} ":
+        return "MS options branch batti India/abroad lo compare cheyyachu. FuturePath common MS pathways chupistha; exact university eligibility and fees official source lo check cheyyi."
+    if "help" in q or "what can you do" in q or "em cheyyagal" in q:
+        return "Nenu Class 10 → Inter/Diploma/ITI → course → branch → subjects → skills → projects → internship → jobs → M.Tech/MS route guide chestha. Flowchart + cost estimate kuda chestha."
+    return "Okay 👍 Nee question ni FuturePath path tho connect chesi cheptha. Course, branch, subjects, skills, projects, internships, jobs, higher studies leda cost gurinchi direct ga adugu."
+
+
+def _whatsappize_common_english(text):
+    replacements = {
+        "Approximate Total": "Approx Total", "Full Cost Details": "Full cost details",
+        "Cost Estimation": "Cost Estimate 💰", "Required skills:": "Kavali skills:",
+    }
+    out = str(text or "")
+    for a, b in replacements.items(): out = out.replace(a, b)
+    return out
+
+
 def ai_answer(message):
-    q=message.strip()
-    ql=q.lower()
-    profile=st.session_state.ai_profile
-    context_line=(f"Student stage: {profile['stage']}; stream: {profile['stream']}; "
-                   f"goal: {profile['goal']}; interests: {profile['interests'] or 'not specified'}.")
+    profile = st.session_state.get("ai_profile", {})
+    # Cost questions are handled locally first. This means asking
+    # “What is the cost?” also works when the student has already selected
+    # a course/branch instead of forcing them to paste another prompt.
+    qtext = str(message or "")
+    qlower = qtext.lower()
+    is_cost_question = any(x in qlower for x in ["cost", "fee", "fees", "budget", "expense", "how much", "tuition", "price"])
+    looks_like_flowchart = is_futurepath_flowchart_text(qtext)
+    if is_cost_question or looks_like_flowchart:
+        cost_source = qtext if looks_like_flowchart else build_current_flowchart_text()
+        cost = estimate_flowchart_cost(cost_source, include_optional_tools=True)
+        if cost:
+            return cost if is_cost_question else (
+                "### 💰 FuturePath Cost\n\n"
+                "I detected your pasted FuturePath flowchart and calculated its approximate education cost.\n\n" + cost
+            )
+        return (
+            "### 💰 FuturePath Cost\n\n"
+            "I can calculate the approximate education cost from your selected FuturePath. "
+            "Choose a course or branch first (or paste the complete flowchart here)."
+        )
+    selected_language = st.session_state.get("language", "English")
+    remote_language = selected_language
+    if selected_language == "WhatsApp":
+        remote_language = "WhatsApp Telugu-English chat style: reply in short, natural Roman Telugu mixed with simple English; do not reply in formal English unless needed."
+    remote = remote_ai_answer(message, remote_language, st.session_state.get("student_name", "FuturePath Student"))
+    if remote:
+        return _whatsappize_common_english(remote) if selected_language == "WhatsApp" else remote
+    # Improve the offline experience with a small language-aware conversational layer.
+    qlower = str(message or "").strip().lower()
+    current = st.session_state.get("language", "English")
+    if current == "WhatsApp":
+        if "thank" in qlower:
+            return "Welcome 😊 Inka emaina doubt unte adugu."
+        return _whatsapp_ai_fallback(message)
 
-    if not q:
-        return "Please type a question."
+    key = _student_key()
+    AI_BACKEND.save_profile(key, {
+        "name": "FuturePath Student",
+        "language": st.session_state.get("language", "English"),
+        "stage": profile.get("stage") or st.session_state.get("selected_stage") or "Not selected",
+        "stream": profile.get("stream") or st.session_state.get("selected_stream") or st.session_state.get("selected_after10") or "Not selected",
+        "goal": profile.get("goal", "Explore options"),
+        "interests": profile.get("interests", ""),
+    })
+    return AI_BACKEND.generate_answer(message, profile)
 
-    if any(x in ql for x in ["build my roadmap","my roadmap","roadmap for me","personalized roadmap"]):
-        return f"""### 🧭 Your FuturePath Roadmap
-
-{profile['stage']} → {profile['stream']} → Choose the relevant degree/course → Choose a specialization/branch → Build skills → 2–3 projects → Internship → Job or higher studies.
-
-**Current goal:** {profile['goal']}
-
-Use the Journey pages to open each step and verify the actual eligibility and curriculum of the institutions you consider."""
-
-    if "compare" in ql and (" vs " in ql or " versus " in ql):
-        parts=q.replace(" versus "," vs ").split(" vs ",1)
-        if len(parts)==2:
-            a=find_matches(parts[0],2); b=find_matches(parts[1],2)
-            left=a[0][1] if a else parts[0].strip()
-            right=b[0][1] if b else parts[1].strip()
-            return f"""### 🔎 Compare paths
-
-**{left}**
-- Explore its subjects and skills
-- Build branch-specific projects
-- Check internship roles and higher studies
-
-**{right}**
-- Explore its subjects and skills
-- Build branch-specific projects
-- Check internship roles and higher studies
-
-Use the same factors for both paths: subjects, work type, project type, eligibility and higher-study options."""
-
-    if "intern" in ql:
-        matches=find_matches(q,3)
-        if matches:
-            name,data=matches[0][1],matches[0][2]
-            roles=data.get("internships",[]) if isinstance(data,dict) else []
-            return f"""### 💼 Internship plan for {name}
-
-1. Learn the core skills.
-2. Build 2–3 relevant projects.
-3. Put evidence on GitHub/portfolio.
-4. Prepare a one-page resume.
-5. Explore roles such as: {', '.join(roles[:6])}."""
-        return "Build 2–3 relevant projects, maintain a portfolio/GitHub, prepare a focused resume and apply to domain-specific internships."
-
-    if "project" in ql:
-        matches=find_matches(q,3)
-        if matches:
-            name,data=matches[0][1],matches[0][2]
-            projects=data.get("projects",[]) if isinstance(data,dict) else []
-            return f"### 🛠️ Projects for {name}\n\n" + "\n".join(f"- {x}" for x in projects[:8])
-        return "Tell me a branch or course name and I can show relevant project ideas from the FuturePath catalog."
-
-    if "m.tech" in ql or "mtech" in ql:
-        for name in BRANCHES:
-            if name.lower() in ql:
-                return f"### 🎓 M.Tech after {name}\n\n" + "\n".join(f"- {x}" for x in BRANCHES[name]["mtech"])
-        return "Open an engineering branch and use its M.Tech section to see related postgraduate options."
-
-    if ql.startswith("ms") or " ms " in " "+ql+" ":
-        for name in BRANCHES:
-            if name.lower() in ql:
-                return f"### 🌍 MS after {name}\n\n" + "\n".join(f"- {x}" for x in BRANCHES[name]["ms"])
-        return "Open an engineering branch and use its MS section to explore related postgraduate options."
-
-    matches=find_matches(q,4)
-    if matches:
-        _,name,data=matches[0]
-        if name in BRANCHES:
-            d=BRANCHES[name]
-            return f"""### {d['icon']} {name}
-
-{d['description']}
-
-**Subjects:** {', '.join(d['subjects'])}
-
-**Skills:** {', '.join(d['skills'])}
-
-**Projects:** {', '.join(d['projects'])}
-
-**Internships:** {', '.join(d['internships'])}
-
-**Job roles:** {', '.join(d['careers'])}
-
-**M.Tech:** {', '.join(d['mtech'])}
-
-**MS:** {', '.join(d['ms'])}
-
-_{context_line}_"""
-        return f"""### 📘 {name}
-
-{data.get('description','')}
-
-Open that course from **Start Your Journey** to see its subjects, branches, skills, projects, internships, job roles and higher studies."""
-
-    return """### 🤖 FuturePath AI
-
-I can answer using the FuturePath education catalog. Try:
-- What can I do after MPC?
-- Explain CSE subjects and jobs
-- Projects for Data Science
-- M.Tech after ECE
-- MS after Mechanical
-- How do I prepare for internships?
-- Build my roadmap"""
+def render_chat_bubble(role,content):
+    is_user=role=="user"; align="flex-end" if is_user else "flex-start"; bg="#102a56" if is_user else "white"; fg="white" if is_user else "#102a56"; label=ui("you_label") if is_user else ui("ai_label")
+    safe=str(content).replace("<","&lt;").replace(">","&gt;").replace(chr(10),"<br>")
+    st.markdown(f"<div style='display:flex;justify-content:{align};margin:8px 0 12px;'><div style='max-width:82%;background:{bg};color:{fg};border-radius:18px;padding:11px 15px;box-shadow:0 4px 14px rgba(16,42,86,.10);'><div style='font-size:.78rem;font-weight:800;opacity:.78;margin-bottom:4px;'>{label}</div><div style='font-size:.98rem;line-height:1.55;'>{safe}</div></div></div>",unsafe_allow_html=True)
 
 def render_ai():
     render_back("home","back_ai")
-    st.markdown('<div class="fp-title">🤖 FuturePath AI Assistant</div>',unsafe_allow_html=True)
-    st.markdown('<div class="fp-sub">A data-grounded career assistant that remembers your profile, uses the FuturePath catalog and builds structured pathways without an API key.</div>',unsafe_allow_html=True)
+    if not st.session_state.get("ai_db_loaded",False):
+        stored=AI_BACKEND.load_messages(_student_key())
+        if stored: st.session_state.ai_chat=stored
+        st.session_state.ai_db_loaded=True
+    st.markdown(f'<div class="fp-title">🤖 {ui("ai_title")}</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-sub">{ui("ai_sub")}</div>',unsafe_allow_html=True)
+    if st.session_state.get("selected_stage") in STAGE_OPTIONS: st.session_state.ai_profile["stage"]=st.session_state.get("selected_stage")
+    path_bits=[st.session_state.get("selected_stage"),st.session_state.get("selected_after10"),st.session_state.get("selected_stream"),st.session_state.get("selected_course"),st.session_state.get("selected_branch"),st.session_state.get("selected_diploma"),st.session_state.get("selected_iti")]
+    path_bits=[str(x) for x in path_bits if x]
+    if path_bits: st.markdown(f'<div class="fp-note">🧭 <b>{ui("selected_path")}:</b> {" → ".join(path_bits)}</div>',unsafe_allow_html=True)
+    render_ai_intelligence()
+    st.markdown("---")
+    if st.session_state.get("selected_stream"): st.session_state.ai_profile["stream"]=st.session_state.get("selected_stream")
+    if st.session_state.get("selected_course"): st.session_state.ai_profile["course"]=st.session_state.get("selected_course")
+    if st.session_state.get("selected_branch"): st.session_state.ai_profile["branch"]=st.session_state.get("selected_branch")
+    if not st.session_state.ai_chat: st.session_state.ai_chat=[{"role":"assistant","content":ui("welcome_ai")} ]
+    for msg in st.session_state.ai_chat: render_chat_bubble(msg["role"],msg["content"])
 
-    with st.expander("🧩 Personalize your AI profile",expanded=True):
-        c1,c2=st.columns(2)
+    # Chat composer: input on the left, send control on the right.
+    with st.form("futurepath_chat_form",clear_on_submit=True,border=False):
+        c1,c2=st.columns([5,1])
         with c1:
-            profile_stage=st.selectbox("Current stage",["Class 10","Intermediate","Diploma","ITI / Vocational","B.Tech / Degree Student"],index=["Class 10","Intermediate","Diploma","ITI / Vocational","B.Tech / Degree Student"].index(st.session_state.ai_profile["stage"]))
-            profile_goal=st.selectbox("Goal",["Explore options","Choose a degree","Choose a branch","Prepare for internship","Plan higher studies","Build projects"],index=["Explore options","Choose a degree","Choose a branch","Prepare for internship","Plan higher studies","Build projects"].index(st.session_state.ai_profile["goal"]))
+            prompt=st.text_area(ui("message"),placeholder=ui("paste_flow"),height=92,label_visibility="collapsed")
         with c2:
-            profile_stream=st.selectbox("Stream / area",["Not selected"]+list(INTERMEDIATE.keys())+list(BRANCHES.keys()),index=( ["Not selected"]+list(INTERMEDIATE.keys())+list(BRANCHES.keys()) ).index(st.session_state.ai_profile["stream"]) if st.session_state.ai_profile["stream"] in (["Not selected"]+list(INTERMEDIATE.keys())+list(BRANCHES.keys())) else 0)
-            interests=st.text_input("Interests",value=st.session_state.ai_profile.get("interests",""),placeholder="coding, data, design, biology...")
-        st.session_state.ai_profile={"stage":profile_stage,"stream":profile_stream,"goal":profile_goal,"interests":interests}
+            st.markdown("<div style='height:1.7rem'></div>",unsafe_allow_html=True)
+            submitted=st.form_submit_button(ui("send"),use_container_width=True)
+        if submitted and prompt.strip():
+            answer=ai_answer(prompt.strip())
+            st.session_state.ai_chat.extend([{"role":"user","content":prompt.strip()},{"role":"assistant","content":answer}])
+            AI_BACKEND.save_message(_student_key(),"user",prompt.strip())
+            AI_BACKEND.save_message(_student_key(),"assistant",answer)
+            if is_futurepath_flowchart_text(prompt.strip()) or any(x in prompt.lower() for x in ["cost","fee","fees","how much","budget","tuition"]):
+                st.session_state.ai_cost_source = prompt.strip() if is_futurepath_flowchart_text(prompt.strip()) else build_current_flowchart_text()
+            st.rerun()
 
-    suggestions=["Build my roadmap","What can I do after MPC?","Explain CSE subjects and jobs","Projects for Data Science","M.Tech after CSE","How do I prepare for internships?"]
-    cols=st.columns(3)
-    for i,s in enumerate(suggestions):
-        with cols[i%3]:
-            if st.button("💡 "+s,key="ai_quick_"+str(i),use_container_width=True):
-                st.session_state.ai_chat.append({"role":"user","content":s})
-                st.session_state.ai_chat.append({"role":"assistant","content":ai_answer(s)})
-                st.rerun()
+    # Cost visualization for a pasted flowchart or a direct cost question.
+    cost_source=st.session_state.get("ai_cost_source")
+    if cost_source:
+        st.markdown(f'<div class="fp-section">📊 {ui("visual_cost")}</div>',unsafe_allow_html=True)
+        show_cost_estimate(cost_source,include_optional_tools=True)
+        if st.button("✕ "+ui("close_cost"),key="close_cost_view",use_container_width=True):
+            st.session_state.ai_cost_source=None
+            st.rerun()
 
-    if not st.session_state.ai_chat:
-        st.session_state.ai_chat=[{"role":"assistant","content":"Hi! 👋 I’m FuturePath AI. Tell me your class/stream/interest or ask about a course, branch, project, internship, job, M.Tech or MS."}]
-    for msg in st.session_state.ai_chat:
-        with st.chat_message(msg["role"]): st.markdown(msg["content"])
-
-    prompt=st.chat_input("Ask FuturePath AI about your education or career path...")
-    if prompt:
-        st.session_state.ai_chat.append({"role":"user","content":prompt})
-        st.session_state.ai_chat.append({"role":"assistant","content":ai_answer(prompt)})
-        st.rerun()
-    if st.button("🗑️ Clear AI conversation",use_container_width=True):
+    st.markdown("---")
+    st.markdown(f'<div class="fp-section">📋 {ui("flowchart")} + 💰 {ui("cost")}</div>',unsafe_allow_html=True)
+    st.caption(ui("select_course_hint"))
+    pasted_flow=st.text_area(ui("paste_flow"),placeholder=ui("paste_flow"),height=180,key="cost_flowchart_input")
+    pasted_is_flow=is_futurepath_flowchart_text(pasted_flow)
+    if pasted_is_flow:
+        st.markdown(f'<div class="fp-note">✅ {ui("flowchart_detected")}</div>',unsafe_allow_html=True)
+        show_cost_estimate(pasted_flow,include_optional_tools=True)
+    elif st.button("💰 "+ui("calculate"),key="calculate_flowchart_cost",use_container_width=True):
+        source=pasted_flow.strip() or build_current_flowchart_text(); st.session_state.ai_cost_source=source; st.rerun()
+    if st.button("🗑️ "+ui("clear"),key="clear_ai_conversation",use_container_width=True):
         st.session_state.ai_chat=[]
+        st.session_state.ai_cost_source=None
+        with AI_BACKEND._connect() as con: con.execute("DELETE FROM ai_messages WHERE student_key=?",(_student_key(),))
+        st.rerun()
+
+
+
+
+# ------------------------------------------------------------
+# FUTUREPATH AI INTELLIGENCE LAYER
+# Adds visible AI-style personalization beyond simple chat:
+# match score, explainability, skill focus and an action plan.
+# ------------------------------------------------------------
+AI_INSIGHT_LANG = {
+    "English": {
+        "title": "🧠 FuturePath Intelligence",
+        "sub": "Profile-aware recommendations generated from your selected pathway, interests and FuturePath catalog.",
+        "match": "AI Path Match",
+        "next": "Next Best Action",
+        "focus": "Skill Focus",
+        "why": "Why this path?",
+        "plan": "30-Day Action Plan",
+        "build": "✨ Build My 30-Day Plan",
+        "no_branch": "Complete your course/branch selection to unlock a more accurate match.",
+        "learn": "Suggested skills to focus on next",
+        "strong": "Strong alignment",
+        "explore": "Explore these career areas",
+    },
+    "Telugu": {
+        "title": "🧠 FuturePath Intelligence",
+        "sub": "మీ ఎంపిక చేసిన path, interests మరియు FuturePath data ఆధారంగా personalized suggestions.",
+        "match": "AI Path Match",
+        "next": "Next Best Action",
+        "focus": "Skill Focus",
+        "why": "ఈ path ఎందుకు?",
+        "plan": "30 రోజుల Action Plan",
+        "build": "✨ 30-Day Plan తయారు చేయి",
+        "no_branch": "Course/branch select చేస్తే ఇంకా accurate match చూపించగలను.",
+        "learn": "Next focus చేయాల్సిన skills",
+        "strong": "Strong alignment",
+        "explore": "ఈ career areas explore చేయి",
+    },
+    "WhatsApp": {
+        "title": "🧠 FuturePath AI Intelligence",
+        "sub": "Nee path + interests + FuturePath data batti personalized suggestions.",
+        "match": "AI Path Match",
+        "next": "Next Best Action",
+        "focus": "Skill Focus",
+        "why": "Ee path enduku?",
+        "plan": "30 Days Action Plan",
+        "build": "✨ 30-Day Plan build cheyyi",
+        "no_branch": "Course/branch select chesthe inka accurate match chupistha.",
+        "learn": "Next focus cheyyalsina skills",
+        "strong": "Strong alignment",
+        "explore": "Ee career areas explore cheyyi",
+    },
+}
+for _l in ["Hindi","Tamil","Kannada","Malayalam","Marathi","Bengali"]:
+    AI_INSIGHT_LANG.setdefault(_l, AI_INSIGHT_LANG["English"])
+
+def _ai_insight_score():
+    stage = st.session_state.get("selected_stage") or st.session_state.get("ai_profile", {}).get("stage") or ""
+    stream = st.session_state.get("selected_stream") or ""
+    course = st.session_state.get("selected_course") or ""
+    branch = st.session_state.get("selected_branch") or ""
+    interests = [str(x) for x in st.session_state.get("profile_interests", []) if str(x).strip()]
+
+    score = 25
+    if stage: score += 15
+    if stream or st.session_state.get("selected_after10"): score += 10
+    if course or st.session_state.get("selected_diploma") or st.session_state.get("selected_iti"): score += 15
+    if branch: score += 20
+    if interests: score += min(10, len(interests) * 3)
+    return min(score, 100), stage, stream, course, branch, interests
+
+def _ai_insight_data():
+    score, stage, stream, course, branch, interests = _ai_insight_score()
+    target = branch or course or stream or st.session_state.get("selected_after10") or stage or "your current pathway"
+
+    desc = ""
+    skills = []
+    careers = []
+    if branch and branch in BRANCHES:
+        d = BRANCHES[branch]
+        desc = str(d.get("description", ""))
+        skills = list(d.get("skills", []))
+        careers = list(d.get("careers", []))
+    elif course and course in COURSE_DATA:
+        d = COURSE_DATA[course]
+        desc = str(d.get("description", ""))
+        skills = list(d.get("skills", []))
+        careers = list(d.get("careers", []))
+    elif stream and stream in INTERMEDIATE:
+        d = INTERMEDIATE[stream]
+        desc = f"{stream} pathway covering {', '.join(d.get('subjects', [])[:5])}."
+        skills = list(d.get("skills", []))
+        careers = list(d.get("careers", []))
+
+    interest_text = " ".join(interests).lower()
+    aligned = []
+    focus = []
+    for skill in skills[:8]:
+        sl = skill.lower()
+        tokens = [t for t in sl.replace("/", " ").replace("-", " ").split() if len(t) > 3]
+        if tokens and any(t in interest_text for t in tokens):
+            aligned.append(skill)
+        else:
+            focus.append(skill)
+
+    if branch:
+        next_action = "Review required skills, build one branch-specific project and plan an internship."
+    elif course or st.session_state.get("selected_diploma") or st.session_state.get("selected_iti"):
+        next_action = "Select a specialization/branch, then inspect its skills and career options."
+    elif stream or st.session_state.get("selected_after10"):
+        next_action = "Choose a course / degree that matches your subjects and interests."
+    elif stage:
+        next_action = "Complete the next pathway selection to unlock personalized recommendations."
+    else:
+        next_action = "Create your student profile and choose your current stage."
+
+    return {
+        "score": score,
+        "target": target,
+        "stage": stage,
+        "stream": stream,
+        "course": course,
+        "branch": branch,
+        "interests": interests,
+        "description": desc,
+        "aligned": aligned,
+        "focus": focus,
+        "careers": careers,
+        "next": next_action,
+    }
+
+def _build_30_day_plan(data):
+    target = data["target"]
+    return (
+        f"### 🚀 30-Day FuturePath Plan — {target}\n\n"
+        "**Week 1 — Foundation**\n"
+        "- Learn the core concepts and vocabulary of the pathway.\n"
+        "- Set up your learning tools and notes.\n"
+        "- Complete 3 focused practice sessions.\n\n"
+        "**Week 2 — Skill Building**\n"
+        "- Practice the most important technical/subject skills.\n"
+        "- Solve small problems and document your learning.\n\n"
+        "**Week 3 — Project**\n"
+        "- Build one small portfolio project related to the selected path.\n"
+        "- Put the project on GitHub or a portfolio.\n\n"
+        "**Week 4 — Career Ready**\n"
+        "- Improve your resume/profile.\n"
+        "- Identify internship or entry-level opportunities.\n"
+        "- Review the next 90-day learning target."
+    )
+
+def render_ai_intelligence():
+    data = _ai_insight_data()
+    lang = st.session_state.get("language", "English")
+    tx = AI_INSIGHT_LANG.get(lang, AI_INSIGHT_LANG["English"])
+    st.markdown(
+        f"<div class='fp-section'>{tx['title']}</div>"
+        f"<div class='fp-sub'>{tx['sub']}</div>",
+        unsafe_allow_html=True,
+    )
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown(
+            f"<div class='card'><div style='font-size:.85rem;font-weight:800'>{tx['match']}</div>"
+            f"<div style='font-size:2.2rem;font-weight:900;margin:3px 0'>{data['score']}%</div>"
+            f"<div style='font-size:.85rem;opacity:.78'>{data['target']}</div></div>",
+            unsafe_allow_html=True,
+        )
+    with c2:
+        st.markdown(
+            f"<div class='card'><div style='font-size:.85rem;font-weight:800'>{tx['next']}</div>"
+            f"<div style='font-size:1rem;font-weight:700;margin-top:8px'>{data['next']}</div></div>",
+            unsafe_allow_html=True,
+        )
+    with c3:
+        focus_text = ", ".join(data['focus'][:4]) if data['focus'] else tx['strong']
+        st.markdown(
+            f"<div class='card'><div style='font-size:.85rem;font-weight:800'>{tx['focus']}</div>"
+            f"<div style='font-size:1rem;font-weight:700;margin-top:8px'>{focus_text}</div></div>",
+            unsafe_allow_html=True,
+        )
+
+    st.progress(data["score"] / 100.0, text=f"{tx['match']}: {data['score']}%")
+
+    with st.expander("🔍 " + tx["why"], expanded=False):
+        if data["description"]:
+            st.write(data["description"])
+        if data["aligned"]:
+            st.markdown("**✅ " + tx["strong"] + "**")
+            st.write(", ".join(data["aligned"][:5]))
+        if data["focus"]:
+            st.markdown("**🎯 " + tx["learn"] + "**")
+            st.write(", ".join(data["focus"][:6]))
+        if data["careers"]:
+            st.markdown("**💼 " + tx["explore"] + "**")
+            st.write(", ".join(data["careers"][:6]))
+        if not data["branch"] and not data["course"]:
+            st.info(tx["no_branch"])
+
+    if st.button(tx["build"], key="build_ai_30_day_plan", use_container_width=True):
+        plan = _build_30_day_plan(data)
+        st.session_state.ai_chat.append({"role":"assistant", "content":plan})
+        AI_BACKEND.save_message(_student_key(), "assistant", plan)
         st.rerun()
 
 # ------------------------------------------------------------
@@ -1341,31 +3291,139 @@ def render_ai():
 # ------------------------------------------------------------
 def render_help():
     render_back("home","back_help")
-    st.markdown('<div class="fp-title">🆘 FuturePath Help Desk</div>',unsafe_allow_html=True)
-    st.markdown('<div class="fp-sub">Use the Journey section as the main path. Open a stream → course → branch → details, or use AI Assistant for questions.</div>',unsafe_allow_html=True)
-    faqs={
-      "What happens after Class 10?":"Choose Intermediate, Polytechnic/Diploma or ITI/Vocational based on your interests, eligibility and the options available where you study.",
-      "Where are MPC branches?":"Start Your Journey → MPC → B.Tech / B.E. → Engineering Branches.",
-      "What can I see for a branch?":"Subjects, skills, projects, internship roles, job roles, M.Tech options and MS options.",
-      "Can every course have branches?":"Many degrees have common specializations; exact branch names and availability depend on the university or institution.",
-      "Does FuturePath replace official eligibility information?":"No. Use it as an exploration guide and verify current eligibility, curriculum and admission rules with the institution or official authority."
+    st.markdown(f'<div class="fp-title">🆘 {ui("help_title")}</div>',unsafe_allow_html=True)
+    st.markdown(f'<div class="fp-sub">{ui("help_intro")}</div>',unsafe_allow_html=True)
+    st.markdown(f"**{ui("old_site")}:** [Open the older version](https://futurepath-career-guide.streamlit.app/)")
+
+    help_sets = {
+        "English": {
+            "How do I start FuturePath?":"Open Start Your Journey. Create a student profile, enter the name and choose the current stage.",
+            "What happens after I choose my current stage?":"The choices are filtered to that stage. Class 10 shows Intermediate, Diploma/Polytechnic and ITI/Vocational. Intermediate shows its streams and then courses. Diploma and ITI go directly to their relevant options.",
+            "What happens after choosing Intermediate?":"Choose one stream such as MPC, BiPC, MEC, CEC, HEC or Humanities. Then select a course. Only that stream's matching course options are shown.",
+            "What happens after choosing B.Tech / B.E.?":"The profile page does not ask for CSE/CSD/etc. After you update the student details, FuturePath opens the B.Tech Engineering Branches page.",
+            "What can I see for a branch?":"Subjects, required skills, project ideas, internship roles, job roles, graduation pathway, M.Tech options and MS options.",
+            "How does the Flow Chart work?":"After selecting your path, open Flow Chart to see the complete route. Use Copy Flowchart to copy it and paste it into FuturePath AI.",
+            "How does cost estimation work?":"Ask the AI assistant 'What is the cost?' or paste a FuturePath flowchart. The app shows configured fee ranges, stage subtotals, approximate total and a visual cost comparison.",
+            "Are the fees official?":"No. They are planning estimates until you replace the configurable corporation/institution fee profile with your real fee schedule.",
+            "How do I use the AI Assistant?":"Open AI Assistant, type a question and press Send. Your message appears on the right and FuturePath AI replies on the left. You can ask about courses, branches, subjects, skills, projects, internships, jobs, higher studies and cost.",
+            "Can I change the language?":"Open the dedicated Choose Language page. Select a language and the FuturePath interface updates automatically.",
+            "What is WhatsApp / Chat Style?":"It uses short Telugu-English chat wording across the main UI, AI labels and Help Desk—for example: 'Nee peru', 'Nee current stage select cheyyi', 'Course select cheyyi'.",
+            "Does FuturePath replace official admission information?":"No. Use it for exploration and planning. Always verify current eligibility, admission rules, curriculum and actual fees with the institution or official authority.",
+        },
+        "Telugu": {
+            "FuturePath ఎలా ప్రారంభించాలి?":"Start Your Journey ఓపెన్ చేసి విద్యార్థి ప్రొఫైల్ సృష్టించండి. పేరు మరియు ప్రస్తుత స్థాయిని ఎంచుకోండి.",
+            "Current Stage ఎంచుకున్న తర్వాత ఏమవుతుంది?":"ఎంచుకున్న స్థాయి ప్రకారం ఆప్షన్లు మాత్రమే కనిపిస్తాయి. Class 10 అయితే Intermediate, Diploma/Polytechnic, ITI/Vocational కనిపిస్తాయి. Intermediate అయితే స్ట్రీమ్‌లు, తర్వాత కోర్సులు కనిపిస్తాయి.",
+            "Intermediate తర్వాత ఏమి చేయాలి?":"MPC, BiPC, MEC, CEC, HEC లేదా Humanities లో ఒకదాన్ని ఎంచుకోండి. తర్వాత ఆ స్ట్రీమ్‌కు సంబంధించిన కోర్సులు మాత్రమే కనిపిస్తాయి.",
+            "B.Tech / B.E. ఎంచుకున్న తర్వాత?":"ప్రొఫైల్ పేజీలో CSE/CSD వంటి బ్రాంచ్ అడగదు. Student Details update చేసిన తర్వాత B.Tech Engineering Branches పేజీ ఓపెన్ అవుతుంది.",
+            "ఒక బ్రాంచ్‌లో ఏమి చూడగలను?":"Subjects, Skills, Projects, Internships, Job Roles, M.Tech మరియు MS వివరాలు చూడవచ్చు.",
+            "Flow Chart ఎలా ఉపయోగించాలి?":"మీ ఎంపికల తర్వాత Flow Chart ఓపెన్ చేసి పూర్తి మార్గాన్ని చూడండి. Copy Flowchart తో కాపీ చేసి AI Assistant లో పేస్ట్ చేయవచ్చు.",
+            "Cost ఎలా తెలుసుకోవాలి?":"AI Assistant లో 'cost ఎంత?' అని అడగండి లేదా Flowchart పేస్ట్ చేయండి. Fee ranges, stage totals, approximate total మరియు visual cost కనిపిస్తాయి.",
+            "AI Assistant ఎలా ఉపయోగించాలి?":"AI Assistant ఓపెన్ చేసి ప్రశ్న టైప్ చేసి Send నొక్కండి. మీ మెసేజ్ కుడి వైపు, AI సమాధానం ఎడమ వైపు కనిపిస్తుంది.",
+            "Language ఎలా మార్చాలి?":"Choose Language పేజీకి వెళ్లి భాష ఎంచుకోండి. ఎంపిక చేసిన వెంటనే FuturePath UI మారుతుంది.",
+            "WhatsApp / Chat Style అంటే ఏమిటి?":"తెలుగు + English short chat style. ఉదాహరణకు: 'Nee peru', 'Nee current stage select cheyyi', 'Course select cheyyi'.",
+            "Fees officialనా?":"కాదు. Real corporation/institution fee profile ఇచ్చే వరకు ఇవి planning estimates మాత్రమే.",
+            "FuturePath official admission rulesకి బదులా?":"కాదు. Eligibility, admission rules, curriculum మరియు actual fees ను అధికారిక సంస్థ దగ్గర verify చేయాలి.",
+        },
+        "Hindi": {
+            "FuturePath कैसे शुरू करें?":"Start Your Journey खोलें, छात्र प्रोफ़ाइल बनाएं, नाम और वर्तमान स्तर चुनें।",
+            "वर्तमान स्तर चुनने के बाद क्या होगा?":"चयनित स्तर के अनुसार विकल्प दिखेंगे। Class 10 पर Intermediate, Diploma/Polytechnic और ITI/Vocational दिखेंगे। Intermediate पर पहले stream और फिर course दिखेगा।",
+            "Intermediate के बाद क्या करें?":"MPC, BiPC, MEC, CEC, HEC या Humanities में से चुनें। फिर केवल उसी stream के course options दिखेंगे।",
+            "B.Tech / B.E. के बाद क्या होगा?":"Profile page पर CSE/CSD जैसी branch नहीं पूछी जाएगी। Student Details update के बाद B.Tech Engineering Branches page खुलेगा।",
+            "Branch में क्या मिलेगा?":"Subjects, skills, projects, internships, jobs, M.Tech और MS details मिलेंगी।",
+            "AI Assistant कैसे उपयोग करें?":"AI Assistant खोलें, प्रश्न लिखें और Send करें। आपका संदेश दाईं ओर और AI का उत्तर बाईं ओर दिखेगा।",
+            "Cost कैसे देखें?":"Cost पूछें या पूरा FuturePath flowchart paste करें। Fee ranges, subtotal, approximate total और visual comparison दिखेगा।",
+            "Language कैसे बदलें?":"Choose Language page खोलकर भाषा चुनें। चयन के बाद interface अपडेट होगा।",
+            "WhatsApp / Chat Style क्या है?":"छोटी Telugu-English chat style, जैसे 'Nee peru' और 'Course select cheyyi'.",
+            "क्या फीस official है?":"नहीं। वास्तविक institution/corporation fee profile डालने तक ये planning estimates हैं।",
+        },
+        "Tamil": {
+            "FuturePath எப்படி தொடங்குவது?":"Start Your Journey திறந்து Student Profile உருவாக்கி பெயர் மற்றும் தற்போதைய நிலையை தேர்வு செய்யவும்.",
+            "Current Stage தேர்வு செய்தால்?":"தேர்வு செய்த நிலைக்கு ஏற்ற options மட்டும் தோன்றும். Class 10ல் Intermediate, Diploma/Polytechnic, ITI/Vocational வரும்.",
+            "Intermediateக்கு பிறகு?":"MPC, BiPC, MEC, CEC, HEC அல்லது Humanities தேர்வு செய்து, அந்த streamக்கு பொருந்தும் course-ஐ தேர்வு செய்யலாம்.",
+            "B.Tech / B.E. தேர்வு செய்தால்?":"Profile pageல் CSE/CSD கேட்காது. Student Details update செய்த பிறகு B.Tech Engineering Branches page வரும்.",
+            "AI Assistant எப்படி?":"AI Assistantல் கேள்வியை type செய்து Send செய்யவும். உங்கள் message right sideல், AI reply left sideல் வரும்.",
+            "Cost எப்படி பார்க்கலாம்?":"Cost கேட்கவும் அல்லது FuturePath flowchart paste செய்யவும். Fee details, subtotal மற்றும் approximate total வரும்.",
+            "Language எப்படி மாற்றுவது?":"Choose Language pageல் மொழியை தேர்வு செய்யவும். தேர்வு செய்ததும் interface மாறும்.",
+            "WhatsApp Style என்ன?":"Short Telugu-English chat wording பயன்படுத்தும் mode; example: 'Nee peru', 'Course select cheyyi'.",
+        },
+        "Kannada": {
+            "FuturePath ಹೇಗೆ ಪ್ರಾರಂಭಿಸಬೇಕು?":"Start Your Journey ತೆರೆಯಿರಿ, Student Profile ರಚಿಸಿ, ಹೆಸರು ಮತ್ತು ಪ್ರಸ್ತುತ ಹಂತ ಆಯ್ಕೆಮಾಡಿ.",
+            "Current Stage ಆಯ್ಕೆ ಮಾಡಿದರೆ?":"ಆ ಹಂತಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಆಯ್ಕೆಗಳು ಮಾತ್ರ ಕಾಣಿಸುತ್ತವೆ. Class 10ರಲ್ಲಿ Intermediate, Diploma/Polytechnic ಮತ್ತು ITI/Vocational ಬರುತ್ತವೆ.",
+            "Intermediate ನಂತರ?":"MPC, BiPC, MEC, CEC, HEC ಅಥವಾ Humanities ಆಯ್ಕೆಮಾಡಿ. ನಂತರ ಅದಕ್ಕೆ ಸಂಬಂಧಿಸಿದ course ಮಾತ್ರ ಕಾಣುತ್ತದೆ.",
+            "B.Tech / B.E. ಆಯ್ಕೆ ಮಾಡಿದರೆ?":"Profile pageನಲ್ಲಿ CSE/CSD ಕೇಳುವುದಿಲ್ಲ. Update Student Details ನಂತರ B.Tech Engineering Branches page ತೆರೆಯುತ್ತದೆ.",
+            "AI Assistant ಹೇಗೆ ಬಳಸಬೇಕು?":"AI Assistant ತೆರೆದು ಪ್ರಶ್ನೆ type ಮಾಡಿ Send ಒತ್ತಿ. ನಿಮ್ಮ message right side, AI reply left sideನಲ್ಲಿ ಇರುತ್ತದೆ.",
+            "Cost ಹೇಗೆ ನೋಡಬೇಕು?":"Cost ಕೇಳಿ ಅಥವಾ FuturePath flowchart paste ಮಾಡಿ. Fee details ಮತ್ತು approximate total ಕಾಣುತ್ತವೆ.",
+            "Language ಹೇಗೆ ಬದಲಾಯಿಸಬೇಕು?":"Choose Language pageನಲ್ಲಿ ಭಾಷೆ ಆಯ್ಕೆಮಾಡಿ. ಆಯ್ಕೆ ಮಾಡಿದ ತಕ್ಷಣ interface update ಆಗುತ್ತದೆ.",
+            "WhatsApp Style ಏನು?":"Short Telugu-English chat style: 'Nee peru', 'Course select cheyyi'.",
+        },
+        "Malayalam": {
+            "FuturePath എങ്ങനെ തുടങ്ങാം?":"Start Your Journey തുറന്ന് Student Profile സൃഷ്ടിച്ച് പേര്, നിലവിലെ ഘട്ടം തിരഞ്ഞെടുക്കുക.",
+            "Current Stage തിരഞ്ഞെടുത്താൽ?":"ആ ഘട്ടത്തിന് അനുയോജ്യമായ options മാത്രം കാണിക്കും. Class 10ൽ Intermediate, Diploma/Polytechnic, ITI/Vocational കാണിക്കും.",
+            "Intermediate കഴിഞ്ഞ്?":"MPC, BiPC, MEC, CEC, HEC അല്ലെങ്കിൽ Humanities തിരഞ്ഞെടുക്കുക; അതിന്റെ course options മാത്രം കാണിക്കും.",
+            "B.Tech / B.E. തിരഞ്ഞെടുക്കുമ്പോൾ?":"Profile pageൽ CSE/CSD ചോദിക്കില്ല. Student Details update ചെയ്ത ശേഷം B.Tech Engineering Branches page തുറക്കും.",
+            "AI Assistant എങ്ങനെ?":"AI Assistant തുറന്ന് ചോദ്യം type ചെയ്ത് Send ചെയ്യുക. നിങ്ങളുടെ message right sideലും AI reply left sideലും കാണാം.",
+            "Cost എങ്ങനെ?":"Cost ചോദിക്കുകയോ FuturePath flowchart paste ചെയ്യുകയോ ചെയ്യുക. Fee details, subtotal, approximate total എന്നിവ കാണാം.",
+            "Language എങ്ങനെ മാറ്റാം?":"Choose Language pageൽ ഭാഷ തിരഞ്ഞെടുക്കുക. തിരഞ്ഞെടുക്കുമ്പോൾ interface update ചെയ്യും.",
+            "WhatsApp Style എന്താണ്?":"Short Telugu-English chat style ഉപയോഗിക്കുന്ന mode ആണ്; ഉദാഹരണം: 'Nee peru', 'Course select cheyyi'.",
+        },
+        "Marathi": {
+            "FuturePath कसा सुरू करायचा?":"Start Your Journey उघडा, विद्यार्थी प्रोफाइल तयार करा आणि नाव व सध्याचा टप्पा निवडा.",
+            "Current Stage निवडल्यानंतर?":"फक्त त्या टप्प्याशी संबंधित पर्याय दिसतील. Class 10 नंतर Intermediate, Diploma/Polytechnic आणि ITI/Vocational दिसतील.",
+            "Intermediate नंतर?":"MPC, BiPC, MEC, CEC, HEC किंवा Humanities निवडा. त्यानंतर त्याच stream चे course options दिसतील.",
+            "B.Tech / B.E. निवडल्यानंतर?":"Profile page वर CSE/CSD branch विचारली जाणार नाही. Update Student Details नंतर B.Tech Engineering Branches page उघडेल.",
+            "AI Assistant कसा वापरायचा?":"AI Assistant उघडा, प्रश्न टाइप करा आणि Send करा. तुमचा message right side आणि AI reply left side ला दिसेल.",
+            "Cost कसा पाहायचा?":"Cost विचारा किंवा FuturePath flowchart paste करा. Fee details आणि approximate total दिसतील.",
+            "Language कशी बदलायची?":"Choose Language page वर भाषा निवडा. निवडल्यानंतर interface अपडेट होईल.",
+            "WhatsApp Style काय आहे?":"Short Telugu-English chat style mode; उदाहरण: 'Nee peru', 'Course select cheyyi'.",
+        },
+        "Bengali": {
+            "FuturePath কীভাবে শুরু করব?":"Start Your Journey খুলে Student Profile তৈরি করুন, নাম ও বর্তমান স্তর নির্বাচন করুন।",
+            "Current Stage নির্বাচন করলে?":"শুধু সেই স্তরের উপযুক্ত options দেখা যাবে। Class 10-এ Intermediate, Diploma/Polytechnic এবং ITI/Vocational থাকবে।",
+            "Intermediate-এর পরে?":"MPC, BiPC, MEC, CEC, HEC বা Humanities বেছে নিন। তারপর শুধু সেই stream-এর course options দেখা যাবে।",
+            "B.Tech / B.E. নির্বাচন করলে?":"Profile page-এ CSE/CSD branch জিজ্ঞেস করবে না। Update Student Details-এর পরে B.Tech Engineering Branches page খুলবে।",
+            "AI Assistant কীভাবে ব্যবহার করব?":"AI Assistant খুলে প্রশ্ন লিখে Send করুন। আপনার message ডানদিকে এবং AI reply বামদিকে থাকবে।",
+            "Cost কীভাবে দেখব?":"Cost জিজ্ঞেস করুন বা FuturePath flowchart paste করুন। Fee details এবং approximate total দেখা যাবে।",
+            "Language কীভাবে বদলাব?":"Choose Language page-এ ভাষা নির্বাচন করুন। সঙ্গে সঙ্গে interface update হবে।",
+            "WhatsApp Style কী?":"Short Telugu-English chat style mode; যেমন 'Nee peru', 'Course select cheyyi'.",
+        },
+        "WhatsApp": {
+            "FuturePath ela start cheyyali?":"Start Journey open cheyyi → Student Profile create cheyyi → Nee peru + current stage select cheyyi.",
+            "Current stage select chesaka?":"Aa stage ki related options matrame chupistha. 10th ayithe Inter / Diploma / ITI-Vocational. Inter ayithe stream → course. Diploma/ITI ayithe direct ga aa options.",
+            "Inter tarvatha em?":"MPC / BiPC / MEC / CEC / HEC / Humanities lo okati select cheyyi. Aa stream ki related courses matrame chupistha.",
+            "B.Tech select chesthe?":"Profile lo CSE/CSD adiganu. Student Details update cheyyi → direct ga B.Tech Engineering Branches page open avtundi.",
+            "Branch lo em untayi?":"Subjects, Skills, Projects, Internships, Jobs, M.Tech, MS full details untayi.",
+            "Flowchart ela use cheyyali?":"Nee path complete ayyaka Flow Chart open cheyyi. Copy Flowchart button use chesi AI Assistant lo paste cheyyi.",
+            "Cost ela telusukovali?":"AI lo 'cost entha?' ani adugu leda complete FuturePath flowchart paste cheyyi. Full fee details + Approx Total + visual cost chupistha.",
+            "AI Assistant ela use cheyyali?":"AI Assistant open cheyyi → question type cheyyi → Send ➤ press cheyyi. Nee message right side, AI reply left side.",
+            "Language ela marchali?":"Choose Language page open chesi language select cheyyi. Select chesina ventane FuturePath UI update avtundi.",
+            "WhatsApp language ante?":"Full short Telugu-English chat style. Example: 'Mi peru cheppandi', 'Nee current stage select cheyyi', 'Course select cheyyi', 'Cost entha?'.",
+            "Fees exact aa?":"Kadu. Current fee profile configure cheyyakapothe avi planning estimates matrame.",
+        },
     }
-    for q,a in faqs.items():
-        with st.expander(q): st.write(a)
+    answers = help_sets.get(st.session_state.get("language","English"), help_sets["English"])
+    for q,a in answers.items():
+        with st.expander(q):
+            st.write(a)
 
 # ------------------------------------------------------------
 # Router
 # ------------------------------------------------------------
 if st.session_state.page=="home": render_home()
+elif st.session_state.page=="languages": render_languages()
 elif st.session_state.page=="journey": render_journey()
+elif st.session_state.page=="after10_option": render_after10_option()
 elif st.session_state.page=="stream": render_stream()
 elif st.session_state.page=="course_detail": render_course_detail()
 elif st.session_state.page=="branches": render_branches()
 elif st.session_state.page=="branch": render_branch()
+elif st.session_state.page=="higher_detail": render_higher_detail()
 elif st.session_state.page=="diploma_detail": render_diploma()
 elif st.session_state.page=="iti_detail": render_iti_detail()
 elif st.session_state.page=="ai_assistant": render_ai()
 elif st.session_state.page=="helpdesk": render_help()
+elif st.session_state.page=="explorer_profile": render_explorer_profile()
+elif st.session_state.page=="opportunities": render_opportunities()
+elif st.session_state.page=="flowchart": render_flowchart()
 else:
     st.session_state.page="home"
     st.rerun()
